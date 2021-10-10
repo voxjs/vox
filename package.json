@@ -1,5 +1,5 @@
 {
-  "name": "vox",
+  "name": "@voxjs/vox",
   "version": "0.0.0",
   "description": "instant interactivity for the web",
   "keywords": [ "vox", "html", "js" ],
