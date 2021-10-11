@@ -3,6 +3,9 @@
 
 Vox is a tiny (<10KB) JavaScript library that allows you to enhance your HTML with declarative two-way data bindings, using simple, native-like attributes.
 
+[![](https://badgen.net/npm/v/@voxjs/vox)](https://npmjs.com/package/@voxjs/vox)
+[![](https://badgen.net/bundlephobia/minzip/@voxjs/vox)](https://bundlephobia.com/package/@voxjs/vox)
+
 **FEATURES**
 * data binding + event handling;
 * declarative code;
