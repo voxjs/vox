@@ -9,6 +9,8 @@
   "license": "MIT",
   "main": "dist/vox.js",
   "browser": "dist/vox.js",
+  "jsdelivr": "dist/vox.min.js",
+  "unpkg": "dist/vox.min.js",
   "module": "dist/vox.mjs",
   "repository": "github:voxjs/vox",
   "dependencies": {
