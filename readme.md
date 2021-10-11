@@ -6,18 +6,22 @@ Vox is a tiny (<10KB) JavaScript library that allows you to enhance your HTML wi
 **FEATURES**
 * data binding + event handling;
 * declarative code;
-* reactive (powered by [`@vue/reactivity`↗](https://github.com/vuejs/vue-next/tree/master/packages/reactivity));
+* reactive (powered by [`@vue/reactivity`](https://github.com/vuejs/vue-next/tree/master/packages/reactivity));
 * easy to learn;
 * small *and* mighty!
 
 ## 🚀 Setup
-For more detailed instructions, please read the [docs]().
+For more detailed instructions, please read the [docs](https://github.com/voxjs/vox/wiki).
 
 ``` html
 <script src="vox.min.js"></script>
 
 <div vox="{ world: [ '🌏', '🌍', '🌎' ] }">
   Hello, <span vox:text="world.join(' ')"></span>!
+  <br/>
+  <button vox:onclick.once="world.push('👽')">
+    click...
+  </button>
 </div>
 
 <script>
@@ -29,7 +33,7 @@ For more detailed instructions, please read the [docs]().
 ```
 
 ## 📚 Documentation
-Documentation is available @ [wiki]().
+Documentation is available @ [wiki](https://github.com/voxjs/vox/wiki).
 
 ## 🌈 Contributing
 All contributions (feedback included) are welcome! 🙌
