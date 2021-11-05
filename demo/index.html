@@ -9,42 +9,55 @@
     <meta name="author" content="Paula Griguță"/>
     <script src="../dist/vox.min.js"></script>
     <style>
-      body {
-        font-family: -apple-system;
+      * {
+        font-family: sans-serif;
+      }
+      [vox] {
+        margin: 1em;
       }
     </style>
   </head>
   <body>
-    <div vox="{
-      x: 0,
-      items: ['x','y','z'],
-      init() {
-        console.log(this);
-      },
-      exit() {
-        console.log(this);
-      }
-    }">
-      <div vox:skip>
-        x is <var vox:text="(x)"></var>
-        (skipped)
+    <div vox="{ count: 0 }">
+      <b>counter</b>
+      <br/>
+      <button vox:onclick="(count--)">
+        &minus;
+      </button>
+      <span vox:text="(count)"></span>
+      <button vox:onclick="(count++)">
+        &plus;
+      </button>
+    </div>
+    <div vox="{ open: false }">
+      <b>dialog</b>
+      <br/>
+      <button vox:onclick="(open=!open)">
+        click
+      </button>
+      <div vox:if="(open)">
+        hi! 👋
       </div>
-      <div vox:skip="(x)">
-        x is <var vox:text="(x)"></var>
-        (not skipped)
-      </div>
-      <button vox:onclick="items.push('👻')">
-        click
-      </button>
-      <div vox:for="(item, i in items)" vox:text="(item + ' ' + i)"></div>
-      <button vox:onclick="(x=!x)">
-        click
-      </button>
-      <div vox:if="(x)" vox:init="console.log('😋')" vox:exit="console.log('😭')">hi!</div>
-      <div vox:el="foo" vox:init="console.assert(el === els.foo)">this is foo.</div>
-      <button vox:onclick="els.foo.innerText = els.foo.innerText + '.'">
-        click
-      </button>
+    </div>
+    <div vox="{ todos: [ '☕️', '💻', '💤' ] }">
+      <b>to-dos</b>
+      <br/>
+      <ol vox:if="(todos.length > 0)">
+        <li vox:for="(todo in todos)">
+          <span vox:text="(todo)"></span>
+          <button vox:onclick="{
+            todos.splice(todos.indexOf(todo), 1);
+          }">
+            &times;
+          </button>
+        </li>
+      </ol>
+      <form vox:onsubmit.prevent="{
+        todos.push(els.input.value);
+        els.input.value = '';
+      }">
+        <input vox:is="('input')"/>
+      </form>
     </div>
     <script>
       const app = vox();
