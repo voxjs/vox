@@ -188,8 +188,8 @@ const vox_init = (el) => {
         }
         break;
       }
-      case 'el': {
-        vox_el(el, expression);
+      case 'is': {
+        vox_is(el, expression);
         break;
       }
       case 'init': {
@@ -474,9 +474,11 @@ const vox_if = (el, expression) => {
   run();
 };
 
-const vox_el = (el, expression) => {
-  let cleanup;
-  expression = expression.replace(/\W/g, '');
+const vox_is = (el, expression) => {
+  const name = (
+    evaluator(expression)
+      .call(el.__vox)
+  );
   const arr = (
     el.__vox
       .__vox__
@@ -484,30 +486,10 @@ const vox_el = (el, expression) => {
   const els = raw(
     arr[arr.length - 1].els
   );
-  if (el.__vox_for) {
-    let clones = els[expression];
-    if (!clones) {
-      clones = (
-        els[expression] = []
-      );
-    }
-    clones.push(el);
-    cleanup = () => {
-      clones.splice(
-        clones.indexOf(el),
-        1
-      );
-      if (clones.length === 0) {
-        delete els[expression];
-      }
-    };
-  } else {
-    els[expression] = el;
-    cleanup = () => {
-      delete els[expression];
-    };
-  }
-  el.__vox_cleanup.push(cleanup);
+  els[name] = el;
+  el.__vox_cleanup.push(() => {
+    delete els[name];
+  });
 };
 
 const vox_attr = (el, expression, key, flags, aria) => {

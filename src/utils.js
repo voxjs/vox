@@ -102,7 +102,7 @@ const specials = [
   'vox',
   'for',
   'if',
-  'el',
+  'is',
   'init',
   '*',
   'exit'
