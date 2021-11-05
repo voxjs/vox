@@ -130,10 +130,10 @@ const vox_init = (el) => {
     );
     switch (name) {
       case 'skip': {
-        if (
+        if (!expression || (
           evaluator(expression)
             .call(el.__vox)
-        ) {
+        )) {
           vox_exit(el);
           return;
         }
@@ -250,9 +250,6 @@ const vox_init = (el) => {
   (el.__vox_content || (
     el.__vox_content = (
       Array.from(el.children)
-        .filter((el) => (
-          !el.matches('[vox\\:skip=""]')
-        ))
     )
   ))
     .forEach(vox_init);
