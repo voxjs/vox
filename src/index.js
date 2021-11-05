@@ -1,7 +1,7 @@
 import { vox } from './vox.js';
 import { api } from './api.js';
 import { config } from './config.js';
-import { name, version } from '../package.json';
+import { version } from '../package.json';
 import { define } from './utils.js';
 
 define(vox, {
@@ -12,7 +12,7 @@ define(vox, {
     value: config
   },
   name: {
-    value: name
+    value: 'vox'
   },
   version: {
     value: version
