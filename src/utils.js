@@ -17,6 +17,8 @@ const map = (...args) => extend(
   ...args
 );
 
+const noop = () => {};
+
 const bindings = map({
   'accept-charset': 'acceptCharset',
   'accesskey': 'accessKey',
@@ -166,6 +168,7 @@ export {
   isReactive,
   isString,
   map,
+  noop,
   specials,
   styleify,
   voxRE
