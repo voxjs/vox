@@ -284,16 +284,18 @@ const vox_for = (el, expression) => {
         );
       } else if (isObject(value)) {
         value = Object.entries(value);
+      } else if (isString(value)) {
+        value = Array.from(
+          value,
+          (char, i) => [ i, char ]
+        );
+      } else if (value > 0) {
+        value = Array.from(
+          Array(value),
+          (_, i) => [ i, i + 1 ]
+        );
       } else {
-        value = parseInt(value, 10);
-        if (value > 0) {
-          value = Array.from(
-            Array(value),
-            (_, i) => [ i, i + 1 ]
-          );
-        } else {
-          value = [];
-        }
+        value = [];
       }
       return value;
     },
