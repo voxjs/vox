@@ -96,6 +96,10 @@ Vox is a tiny (&#8776;7KB) JavaScript library that allows you to enhance your HT
 </div>
 ```
 
+&#8206;
+
+<sub>**COPYRIGHT &#169; 2021 [PAULA GRIGUȚĂ](https://paula.dev) AND [CONTRIBUTORS](https://github.com/voxjs/vox/blob/main/package.json)**</sub>
+
 <!--
 &#8206;
 
