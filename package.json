@@ -1,6 +1,6 @@
 {
   "name": "@voxjs/vox",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "instant interactivity for the web",
   "keywords": [ "vox", "html", "js" ],
   "homepage": "https://github.com/voxjs",
