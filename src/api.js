@@ -1,5 +1,3 @@
-import { evaluator } from './evaluator.js';
-import { reaction } from './reactivity.js';
 import { define, isString } from './utils.js';
 
 const api = define({}, {
@@ -37,32 +35,6 @@ const api = define({}, {
         if (element) {
           return element.__vox;
         }
-      },
-      watch(expression, callback) {
-        let callable = false;
-        let lastValue;
-        const { run, cleanup } = reaction(
-          () => (
-            evaluator(expression)
-              .call(this)
-          ),
-          (value) => {
-            if (callable) {
-              callback(value, lastValue);
-            } else {
-              callable = true;
-            }
-            lastValue = value;
-          }
-        );
-        if (
-          this.el &&
-          this.el.__vox_cleanup
-        ) {
-          this.el.__vox_cleanup.push(cleanup);
-        }
-        run();
-        return cleanup;
       }
     },
     configurable: true,

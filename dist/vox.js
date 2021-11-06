@@ -811,6 +811,8 @@ var vox = (function () {
       ...args
     );
 
+    const noop = () => {};
+
     const bindings = map({
       'accept-charset': 'acceptCharset',
       'accesskey': 'accessKey',
@@ -894,7 +896,7 @@ var vox = (function () {
       'vox',
       'for',
       'if',
-      'el',
+      'is',
       'init',
       '*',
       'exit'
@@ -946,39 +948,6 @@ var vox = (function () {
 
     const voxRE = /^vox(?::([a-z-]+)([:a-z-]+)?([.a-z-]+)?)?$/;
 
-    const cache$1 = map();
-
-    const evaluator = (expression) => (
-      cache$1[expression] || (
-        cache$1[expression] = new Function(
-          `with(this)return(${expression})`
-        )
-      )
-    );
-
-    const reaction = (getter, runner) => {
-      let value;
-      const effect = new ReactiveEffect(
-        () => {
-          value = getter();
-        },
-        () => {
-          effect.run();
-          if (runner) {
-            runner(value);
-          }
-        }
-      );
-      return {
-        run: () => {
-          effect.scheduler();
-        },
-        cleanup: () => {
-          effect.stop();
-        }
-      };
-    };
-
     const api = define({}, {
       app: {
         value: {
@@ -1014,32 +983,6 @@ var vox = (function () {
             if (element) {
               return element.__vox;
             }
-          },
-          watch(expression, callback) {
-            let callable = false;
-            let lastValue;
-            const { run, cleanup } = reaction(
-              () => (
-                evaluator(expression)
-                  .call(this)
-              ),
-              (value) => {
-                if (callable) {
-                  callback(value, lastValue);
-                } else {
-                  callable = true;
-                }
-                lastValue = value;
-              }
-            );
-            if (
-              this.el &&
-              this.el.__vox_cleanup
-            ) {
-              this.el.__vox_cleanup.push(cleanup);
-            }
-            run();
-            return cleanup;
           }
         },
         configurable: true,
@@ -1047,7 +990,7 @@ var vox = (function () {
       }
     });
 
-    const cache = (vox, arr, obj, key, alt) => {
+    const cache$1 = (vox, arr, obj, key, alt) => {
       if (!(key in obj)) {
         const owner = (
           arr.find(
@@ -1107,26 +1050,51 @@ var vox = (function () {
             }
             return (
               Reflect.get(
-                cache(vox, arr, obj, key),
+                cache$1(vox, arr, obj, key),
                 key
               )
             );
           },
           has: (obj, key) => (
             Reflect.has(
-              cache(vox, arr, obj, key),
+              cache$1(vox, arr, obj, key),
               key
             )
           ),
           set: (obj, key, value) => (
             Reflect.set(
-              cache(vox, arr, obj, key, true),
+              cache$1(vox, arr, obj, key, true),
               key,
               value
             )
           )
         })
       );
+    };
+
+    const reaction = (getter, runner) => {
+      let value;
+      const effect = new ReactiveEffect(
+        () => {
+          value = getter();
+        },
+        () => {
+          effect.run();
+          if (runner) {
+            runner(value);
+          }
+        }
+      );
+      return {
+        run: () => {
+          effect.scheduler();
+        },
+        cleanup: () => {
+          effect.fn = noop;
+          effect.scheduler = noop;
+          effect.stop();
+        }
+      };
     };
 
     const _ = {
@@ -1157,6 +1125,20 @@ var vox = (function () {
       }
       return _.app;
     };
+
+    const cache = map();
+
+    const evaluator = (expression) => (
+      cache[expression] || (
+        cache[expression] = new Function(
+          'with(this)return' + (
+            (expression)
+              ? `(${expression})`
+              : ';'
+          )
+        )
+      )
+    );
 
     const vox = ({ el } = {}) => {
       const _ = {};
@@ -1265,10 +1247,10 @@ var vox = (function () {
         );
         switch (name) {
           case 'skip': {
-            if (
+            if (!expression || (
               evaluator(expression)
                 .call(el.__vox)
-            ) {
+            )) {
               vox_exit(el);
               return;
             }
@@ -1323,8 +1305,8 @@ var vox = (function () {
             }
             break;
           }
-          case 'el': {
-            vox_el(el, expression);
+          case 'is': {
+            vox_is(el, expression);
             break;
           }
           case 'init': {
@@ -1385,9 +1367,6 @@ var vox = (function () {
       (el.__vox_content || (
         el.__vox_content = (
           Array.from(el.children)
-            .filter((el) => (
-              !el.matches('[vox\\:skip=""]')
-            ))
         )
       ))
         .forEach(vox_init);
@@ -1422,16 +1401,18 @@ var vox = (function () {
             );
           } else if (isObject(value)) {
             value = Object.entries(value);
+          } else if (isString(value)) {
+            value = Array.from(
+              value,
+              (char, i) => [ i, char ]
+            );
+          } else if (value > 0) {
+            value = Array.from(
+              Array(value),
+              (_, i) => [ i, i + 1 ]
+            );
           } else {
-            value = parseInt(value, 10);
-            if (value > 0) {
-              value = Array.from(
-                Array(value),
-                (_, i) => [ i, i + 1 ]
-              );
-            } else {
-              value = [];
-            }
+            value = [];
           }
           return value;
         },
@@ -1610,9 +1591,11 @@ var vox = (function () {
       run();
     };
 
-    const vox_el = (el, expression) => {
-      let cleanup;
-      expression = expression.replace(/\W/g, '');
+    const vox_is = (el, expression) => {
+      const name = (
+        evaluator(expression)
+          .call(el.__vox)
+      );
       const arr = (
         el.__vox
           .__vox__
@@ -1620,30 +1603,10 @@ var vox = (function () {
       const els = toRaw(
         arr[arr.length - 1].els
       );
-      if (el.__vox_for) {
-        let clones = els[expression];
-        if (!clones) {
-          clones = (
-            els[expression] = []
-          );
-        }
-        clones.push(el);
-        cleanup = () => {
-          clones.splice(
-            clones.indexOf(el),
-            1
-          );
-          if (clones.length === 0) {
-            delete els[expression];
-          }
-        };
-      } else {
-        els[expression] = el;
-        cleanup = () => {
-          delete els[expression];
-        };
-      }
-      el.__vox_cleanup.push(cleanup);
+      els[name] = el;
+      el.__vox_cleanup.push(() => {
+        delete els[name];
+      });
     };
 
     const vox_attr = (el, expression, key, flags, aria) => {
@@ -2008,7 +1971,6 @@ var vox = (function () {
 
     const config = {};
 
-    const name = "vox";
     const version = "0.0.0";
 
     define(vox, {
@@ -2019,7 +1981,7 @@ var vox = (function () {
         value: config
       },
       name: {
-        value: name
+        value: 'vox'
       },
       version: {
         value: version

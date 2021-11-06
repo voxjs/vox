@@ -5,6 +5,7 @@ import {
   shallowReadonly,
   toRaw as raw
 } from '@vue/reactivity';
+import { noop } from './utils.js';
 
 const reaction = (getter, runner) => {
   let value;
@@ -24,6 +25,8 @@ const reaction = (getter, runner) => {
       effect.scheduler();
     },
     cleanup: () => {
+      effect.fn = noop;
+      effect.scheduler = noop;
       effect.stop();
     }
   };

@@ -1,6 +1,6 @@
-MIT License
+### MIT License
 
-Copyright (c) 2021 Paula Griguță
+Copyright &#169; 2021 Paula Griguță and contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
