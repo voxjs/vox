@@ -32,11 +32,33 @@
     <div vox="{ open: false }">
       <b>dialog</b>
       <br/>
-      <button vox:onclick="(open=!open)">
+      <button vox:onclick="(open = !open)">
         click
       </button>
       <div vox:if="(open)">
         hi! 👋
+      </div>
+    </div>
+    <div vox="{ tab: 0 }">
+      <b>tabs</b>
+      <br/>
+      <button vox:onclick="(tab = 1)">
+        tab 1
+      </button>
+      <button vox:onclick="(tab = 2)">
+        tab 2
+      </button>
+      <button vox:onclick="(tab = 3)">
+        tab 3
+      </button>
+      <div vox:hidden="(tab !== 1)">
+        cupcake 🧁
+      </div>
+      <div vox:hidden="(tab !== 2)">
+        cookie 🍪
+      </div>
+      <div vox:hidden="(tab !== 3)">
+        chocolate 🍫
       </div>
     </div>
     <div vox="{ todos: [ '☕️', '💻', '💤' ] }">
