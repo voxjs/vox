@@ -82,17 +82,17 @@ const vox_init = (el) => {
   if (!el.__vox_exit) {
     el.__vox_exit = [];
   }
-  const attrs = (
+  const dirs = (
     el.getAttributeNames()
-      .filter((attr) => voxRE.test(attr))
-      .sort((attrA, attrB) => {
+      .filter((dir) => voxRE.test(dir))
+      .sort((dirA, dirB) => {
         const a = (
-          attrA
+          dirA
             .split('.')[0]
             .split(':')
         );
         const b = (
-          attrB
+          dirB
             .split('.')[0]
             .split(':')
         );
@@ -115,8 +115,8 @@ const vox_init = (el) => {
         return (i - j);
       })
   );
-  for (const attr of attrs) {
-    const result = attr.match(voxRE);
+  for (const dir of dirs) {
+    const result = dir.match(voxRE);
     const name = result[1] || 'vox';
     const key = (result[2] || '').slice(1);
     const flags = (
@@ -125,7 +125,7 @@ const vox_init = (el) => {
         .filter(Boolean)
     );
     const expression = (
-      el.getAttribute(attr)
+      el.getAttribute(dir)
         .trim()
     );
     switch (name) {
@@ -259,7 +259,7 @@ const vox_for = (el, expression) => {
   const vars = expression.match(
     /\w+(?=.*\b(in|of)\b)/g
   );
-  for (let i = 0; i < vars.length; i++) {
+  for (const i in vars) {
     expression = expression.replace(
       new RegExp(`\\b${vars[i]}\\b`),
       (i)
