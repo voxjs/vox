@@ -2,7 +2,11 @@
   "name": "@voxjs/vox",
   "version": "0.1.1",
   "description": "instant interactivity for the web",
-  "keywords": [ "vox", "html", "js" ],
+  "keywords": [
+    "vox",
+    "html",
+    "js"
+  ],
   "homepage": "https://github.com/voxjs",
   "author": "Paula Griguță <paula.la@live.com> (https://paula.dev)",
   "contributors": [],
@@ -14,14 +18,14 @@
   "module": "dist/vox.mjs",
   "repository": "github:voxjs/vox",
   "dependencies": {
-    "@vue/reactivity": "^3.2.20",
-    "@vue/shared": "^3.2.20"
+    "@vue/reactivity": "^3.2.22",
+    "@vue/shared": "^3.2.22"
   },
   "devDependencies": {
     "@rollup/plugin-json": "^4.1.0",
-    "@rollup/plugin-node-resolve": "^13.0.5",
+    "@rollup/plugin-node-resolve": "^13.0.6",
     "@rollup/plugin-replace": "^3.0.0",
-    "rollup": "^2.57.0",
+    "rollup": "^2.60.0",
     "rollup-plugin-terser": "^7.0.2"
   },
   "scripts": {

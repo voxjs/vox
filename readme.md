@@ -31,12 +31,12 @@ Vox is a tiny (&#8776;7KB) JavaScript library that allows you to enhance your HT
 
 **DOCUMENTATION**
 
-<sub>[**HOME**](https://github.com/voxjs/vox/wiki/01.-HOME)</sub>  
-<sub>[**INSTALLATION**](https://github.com/voxjs/vox/wiki/02.-INSTALLATION)</sub>  
-<sub>[**MAIN CONCEPTS**](https://github.com/voxjs/vox/wiki/03.-MAIN-CONCEPTS)</sub>  
-<sub>[**API REFERENCE**](https://github.com/voxjs/vox/wiki/04.-API-REFERENCE)</sub>  
-<sub>[**SHOPIFY**](https://github.com/voxjs/vox/wiki/05.-SHOPIFY)</sub>  
-<sub>[**RESOURCES**](https://github.com/voxjs/vox/wiki/06.-RESOURCES)</sub>
+<sub>[**HOME**](https://github.com/voxjs/vox/wiki/home)</sub>  
+<sub>[**INSTALLATION**](https://github.com/voxjs/vox/wiki/installation)</sub>  
+<sub>[**MAIN CONCEPTS**](https://github.com/voxjs/vox/wiki/main-concepts)</sub>  
+<sub>[**API REFERENCE**](https://github.com/voxjs/vox/wiki/api-reference)</sub>  
+<sub>[**SHOPIFY**](https://github.com/voxjs/vox/wiki/shopify)</sub>  
+<sub>[**RESOURCES**](https://github.com/voxjs/vox/wiki/resources)</sub>
 
 &#8206;
 
@@ -62,11 +62,38 @@ Vox is a tiny (&#8776;7KB) JavaScript library that allows you to enhance your HT
 
 ``` html
 <div vox="{ open: false }">
-  <button vox:onclick="(open=!open)">
+  <button vox:onclick="(open = !open)">
     click
   </button>
   <div vox:if="(open)">
     hi! 👋
+  </div>
+</div>
+```
+
+&#8206;
+
+[🔗](https://codepen.io/paulala/pen/ExveVxm) <code><**tabs**/></code>
+
+``` html
+<div vox="{ tab: 0 }">
+  <button vox:onclick="(tab = 1)">
+    tab 1
+  </button>
+  <button vox:onclick="(tab = 2)">
+    tab 2
+  </button>
+  <button vox:onclick="(tab = 3)">
+    tab 3
+  </button>
+  <div vox:hidden="(tab !== 1)">
+    cupcake 🧁
+  </div>
+  <div vox:hidden="(tab !== 2)">
+    cookie 🍪
+  </div>
+  <div vox:hidden="(tab !== 3)">
+    chocolate 🍫
   </div>
 </div>
 ```
@@ -96,10 +123,6 @@ Vox is a tiny (&#8776;7KB) JavaScript library that allows you to enhance your HT
 </div>
 ```
 
-&#8206;
-
-<sub>**COPYRIGHT &#169; 2021 [PAULA GRIGUȚĂ](https://paula.dev) AND [CONTRIBUTORS](https://github.com/voxjs/vox/blob/main/package.json)**</sub>
-
 <!--
 &#8206;
 
@@ -109,3 +132,7 @@ Vox is a tiny (&#8776;7KB) JavaScript library that allows you to enhance your HT
 
 **SPONSORS**
 -->
+
+&#8206;
+
+<sub>**COPYRIGHT &#169; 2021 [PAULA GRIGUȚĂ](https://paula.dev) AND [CONTRIBUTORS](https://github.com/voxjs/vox/blob/main/package.json)**</sub>
