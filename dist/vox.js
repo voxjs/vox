@@ -1199,17 +1199,17 @@ var vox = (function () {
       if (!el.__vox_exit) {
         el.__vox_exit = [];
       }
-      const attrs = (
+      const dirs = (
         el.getAttributeNames()
-          .filter((attr) => voxRE.test(attr))
-          .sort((attrA, attrB) => {
+          .filter((dir) => voxRE.test(dir))
+          .sort((dirA, dirB) => {
             const a = (
-              attrA
+              dirA
                 .split('.')[0]
                 .split(':')
             );
             const b = (
-              attrB
+              dirB
                 .split('.')[0]
                 .split(':')
             );
@@ -1232,17 +1232,22 @@ var vox = (function () {
             return (i - j);
           })
       );
-      for (const attr of attrs) {
-        const result = attr.match(voxRE);
+      for (const dir of dirs) {
+        const result = dir.match(voxRE);
         const name = result[1] || 'vox';
         const key = (result[2] || '').slice(1);
         const flags = (
           (result[3] || '')
             .split('.')
-            .filter(Boolean)
+            .reduce((flags, flag) => {
+              if (flag) {
+                flags[flag] = flag;
+              }
+              return flags;
+            }, {})
         );
         const expression = (
-          el.getAttribute(attr)
+          el.getAttribute(dir)
             .trim()
         );
         switch (name) {
@@ -1376,7 +1381,7 @@ var vox = (function () {
       const vars = expression.match(
         /\w+(?=.*\b(in|of)\b)/g
       );
-      for (let i = 0; i < vars.length; i++) {
+      for (const i in vars) {
         expression = expression.replace(
           new RegExp(`\\b${vars[i]}\\b`),
           (i)
@@ -1610,10 +1615,7 @@ var vox = (function () {
     };
 
     const vox_attr = (el, expression, key, flags, aria) => {
-      if (
-        key &&
-        flags.includes('camel')
-      ) {
+      if (key && flags.camel) {
         key = camelize(key);
       }
       const { run, cleanup } = reaction(
@@ -1665,10 +1667,7 @@ var vox = (function () {
     };
 
     const vox_class = (el, expression, key, flags) => {
-      if (
-        key &&
-        flags.includes('camel')
-      ) {
+      if (key && flags.camel) {
         key = camelize(key);
       }
       let classes = [];
@@ -1705,8 +1704,9 @@ var vox = (function () {
       let cleanup;
       if (key) {
         let self = el;
+        let string = '*';
         const options = {};
-        for (const flag of flags.reverse()) {
+        for (const flag in flags) {
           switch (flag) {
             case 'camel': {
               key = camelize(key);
@@ -1719,36 +1719,36 @@ var vox = (function () {
             }
             case 'doc':
             case 'document': {
-              if (self === el) {
-                self = document;
-              }
+              self = document;
               break;
             }
             case 'out':
             case 'outside': {
-              if (self === el) {
-                self = document;
-              }
-              expression = (
-                `if(!el.contains(event.target)){${expression}}`
+              self = document;
+              string = string.replace(
+                '*',
+                'if(!el.contains(event.target)){*}'
               );
               break;
             }
             case 'self': {
-              expression = (
-                `if(event.target===el){${expression}}`
+              string = string.replace(
+                '*',
+                'if(event.target===el){*}'
               );
               break;
             }
             case 'prevent': {
-              expression = (
-                `event.preventDefault();${expression}`
+              string = string.replace(
+                '*',
+                'event.preventDefault();*'
               );
               break;
             }
             case 'stop': {
-              expression = (
-                `event.stopPropagation();${expression}`
+              string = string.replace(
+                '*',
+                'event.stopPropagation();*'
               );
               break;
             }
@@ -1781,8 +1781,9 @@ var vox = (function () {
                   )
                 );
               }
-              expression = (
-                `if(${conditions.join('||')}){${expression}}`
+              string = string.replace(
+                '*',
+                `if(${conditions.join('||')}){*}`
               );
               break;
             }
@@ -1790,14 +1791,16 @@ var vox = (function () {
             case 'ctrl':
             case 'meta':
             case 'shift': {
-              expression = (
-                `if(event.${flag}Key){${expression}}`
+              string = string.replace(
+                '*',
+                `if(event.${flag}Key){*}`
               );
               break;
             }
             case 'repeat': {
-              expression = (
-                `if(event.repeat){${expression}}`
+              string = string.replace(
+                '*',
+                'if(event.repeat){*}'
               );
               break;
             }
@@ -1814,6 +1817,9 @@ var vox = (function () {
               break;
             }
           }
+        }
+        if (string !== '*') {
+          expression = string.replace('*', expression);
         }
         const handler = (
           evaluator(`(event)=>{${expression}}`)
@@ -1888,10 +1894,7 @@ var vox = (function () {
     };
 
     const vox_style = (el, expression, key, flags) => {
-      if (
-        key &&
-        flags.includes('camel')
-      ) {
+      if (key && flags.camel) {
         key = camelize(key);
       }
       let keys = [];
@@ -1971,7 +1974,7 @@ var vox = (function () {
 
     const config = {};
 
-    const version = "0.1.1";
+    const version = "0.1.2";
 
     define(vox, {
       api: {

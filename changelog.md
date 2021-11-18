@@ -1,8 +1,14 @@
+## [v0.1.2](https://github.com/voxjs/vox/releases/tag/v0.1.2) (2021-11-18)
+
+&#8206;
+
 ## [v0.1.1](https://github.com/voxjs/vox/releases/tag/v0.1.1) (2021-11-06)
 
 **FIXES**
 
 * fix version number 💩
+
+&#8206;
 
 ## [v0.1.0](https://github.com/voxjs/vox/releases/tag/v0.1.0) (2021-11-06)
 
