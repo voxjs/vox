@@ -25,28 +25,12 @@ import {
   voxRE
 } from './utils.js';
 
-const vox = ({ el } = {}) => {
+const vox = (q = '[vox]') => {
   const _ = {};
-  if (el !== void(0)) {
-    if (isString(el)) {
-      el = document.querySelector(el);
-    }
-    if (el) {
-      _.init = () => {
-        if (!el.__vox) {
-          vox_init(el);
-        }
-      };
-      _.exit = () => {
-        if (el.__vox) {
-          vox_exit(el);
-        }
-      };
-    }
-  } else {
+  if (isString(q)) {
     const els = (
       document.querySelectorAll(
-        '[vox]:not([vox] [vox])'
+        `${q}:not(${q} ${q})`
       )
     );
     _.init = () => {
@@ -61,6 +45,21 @@ const vox = ({ el } = {}) => {
         if (el.__vox) {
           vox_exit(el);
         }
+      }
+    };
+  } else {
+    let { el } = (q || {});
+    if (isString(el)) {
+      el = document.querySelector(el);
+    }
+    _.init = () => {
+      if (el && !el.__vox) {
+        vox_init(el);
+      }
+    };
+    _.exit = () => {
+      if (el && el.__vox) {
+        vox_exit(el);
       }
     };
   }
