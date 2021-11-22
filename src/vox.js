@@ -674,13 +674,6 @@ const vox_event = (el, expression, key, flags) => {
           );
           break;
         }
-        case 'repeat': {
-          string = string.replace(
-            '*',
-            'if(event.repeat){*}'
-          );
-          break;
-        }
         case 'capture': {
           options.capture = true;
           break;
