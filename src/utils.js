@@ -152,6 +152,35 @@ const styleify = (value) => {
   return '';
 };
 
+const debounce = (callback, delay) => {
+  if (isNaN(delay)) {
+    delay = 250;
+  }
+  let id;
+  return (...args) => {
+    clearTimeout(id);
+    id = setTimeout(() => {
+      id = null;
+      callback(...args);
+    }, delay);
+  };
+};
+
+const throttle = (callback, delay) => {
+  if (isNaN(delay)) {
+    delay = 250;
+  }
+  let id;
+  return (...args) => {
+    if (id == null) {
+      callback(...args);
+      id = setTimeout(() => {
+        id = null;
+      }, delay);
+    }
+  };
+};
+
 const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.a-z0-9-]+)?)?$/;
 
 export {
@@ -159,6 +188,7 @@ export {
   camelize,
   classify,
   controls,
+  debounce,
   define,
   descriptor,
   extend,
@@ -171,5 +201,6 @@ export {
   noop,
   specials,
   styleify,
+  throttle,
   voxRE
 };

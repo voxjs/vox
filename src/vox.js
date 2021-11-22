@@ -13,6 +13,7 @@ import {
   camelize,
   classify,
   controls,
+  debounce,
   define,
   extend,
   isArray,
@@ -20,6 +21,7 @@ import {
   isString,
   specials,
   styleify,
+  throttle,
   voxRE
 } from './utils.js';
 
@@ -588,6 +590,7 @@ const vox_event = (el, expression, key, flags) => {
   if (key) {
     let self = el;
     let string = '*';
+    let timer, delay;
     const options = {};
     for (const flag in flags) {
       switch (flag) {
@@ -693,6 +696,19 @@ const vox_event = (el, expression, key, flags) => {
           options.passive = true;
           break;
         }
+        case 'debounce': case 'deb': {
+          timer = debounce;
+          break;
+        }
+        case 'throttle': case 'thr': {
+          timer = throttle;
+          break;
+        }
+        default: {
+          if (!isNaN(flag)) {
+            delay = +flag;
+          }
+        }
       }
     }
     if (string !== '*') {
@@ -701,10 +717,13 @@ const vox_event = (el, expression, key, flags) => {
         expression
       );
     }
-    const handler = (
+    let handler = (
       evaluator(`(event)=>{${expression}}`)
         .call(el.__vox)
     );
+    if (timer) {
+      handler = timer(handler, delay);
+    }
     cleanup = () => {
       self.removeEventListener(
         key,
