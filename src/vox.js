@@ -632,6 +632,13 @@ const vox_event = (el, expression, key, flags) => {
           );
           break;
         }
+        case 'immediate': case 'imm': {
+          string = string.replace(
+            'stopPropagation',
+            'stopImmediatePropagation'
+          );
+          break;
+        }
         case 'back':
         case 'delete': case 'del':
         case 'down':
