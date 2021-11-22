@@ -493,9 +493,20 @@ const vox_is = (el, expression) => {
   const els = raw(
     arr[arr.length - 1].els
   );
+  const vox = (
+    arr[arr.length - 2].vox
+  );
   els[name] = el;
+  define(vox, {
+    [name]: {
+      value: el.__vox,
+      configurable: true,
+      enumerable: true
+    }
+  });
   el.__vox_cleanup.push(() => {
     delete els[name];
+    delete vox[name];
   });
 };
 
