@@ -595,18 +595,15 @@ const vox_event = (el, expression, key, flags) => {
           key = camelize(key);
           break;
         }
-        case 'win':
-        case 'window': {
+        case 'window': case 'win': {
           self = window;
           break;
         }
-        case 'doc':
-        case 'document': {
+        case 'document': case 'doc': {
           self = document;
           break;
         }
-        case 'out':
-        case 'outside': {
+        case 'outside': case 'out': {
           self = document;
           string = string.replace(
             '*',
@@ -636,16 +633,13 @@ const vox_event = (el, expression, key, flags) => {
           break;
         }
         case 'back':
-        case 'del':
-        case 'delete':
+        case 'delete': case 'del':
         case 'down':
         case 'enter':
-        case 'esc':
-        case 'escape':
+        case 'escape': case 'esc':
         case 'forward':
         case 'left':
-        case 'mid':
-        case 'middle':
+        case 'middle': case 'mid':
         case 'right':
         case 'space':
         case 'tab':
@@ -702,7 +696,10 @@ const vox_event = (el, expression, key, flags) => {
       }
     }
     if (string !== '*') {
-      expression = string.replace('*', expression);
+      expression = string.replace(
+        '*',
+        expression
+      );
     }
     const handler = (
       evaluator(`(event)=>{${expression}}`)
