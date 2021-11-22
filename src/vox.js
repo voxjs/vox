@@ -606,21 +606,6 @@ const vox_event = (el, expression, key, flags) => {
           self = document;
           break;
         }
-        case 'outside': case 'out': {
-          self = document;
-          string = string.replace(
-            '*',
-            'if(!el.contains(event.target)){*}'
-          );
-          break;
-        }
-        case 'self': {
-          string = string.replace(
-            '*',
-            'if(event.target===el){*}'
-          );
-          break;
-        }
         case 'prevent': {
           string = string.replace(
             '*',
@@ -639,6 +624,21 @@ const vox_event = (el, expression, key, flags) => {
           string = string.replace(
             'stopPropagation',
             'stopImmediatePropagation'
+          );
+          break;
+        }
+        case 'outside': case 'out': {
+          self = document;
+          string = string.replace(
+            '*',
+            'if(!el.contains(event.target)){*}'
+          );
+          break;
+        }
+        case 'self': {
+          string = string.replace(
+            '*',
+            'if(event.target===el){*}'
           );
           break;
         }
