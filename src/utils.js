@@ -152,7 +152,7 @@ const styleify = (value) => {
   return '';
 };
 
-const voxRE = /^vox(?::([a-z-]+)([:a-z-]+)?([.a-z-]+)?)?$/;
+const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.a-z0-9-]+)?)?$/;
 
 export {
   bindings,
