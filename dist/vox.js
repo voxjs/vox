@@ -946,7 +946,36 @@ var vox = (function () {
       return '';
     };
 
-    const voxRE = /^vox(?::([a-z-]+)([:a-z-]+)?([.a-z-]+)?)?$/;
+    const debounce = (callback, delay) => {
+      if (isNaN(delay)) {
+        delay = 250;
+      }
+      let id;
+      return (...args) => {
+        clearTimeout(id);
+        id = setTimeout(() => {
+          id = null;
+          callback(...args);
+        }, delay);
+      };
+    };
+
+    const throttle = (callback, delay) => {
+      if (isNaN(delay)) {
+        delay = 250;
+      }
+      let id;
+      return (...args) => {
+        if (id == null) {
+          callback(...args);
+          id = setTimeout(() => {
+            id = null;
+          }, delay);
+        }
+      };
+    };
+
+    const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.a-z0-9-]+)?)?$/;
 
     const api = define({}, {
       app: {
@@ -961,27 +990,20 @@ var vox = (function () {
                 })
               );
           },
-          vox(q) {
-            if (q === void(0)) {
+          vox(index) {
+            if (index === void(0)) {
               return this;
             }
-            let element;
-            if (isString(q)) {
-              element = (
-                document.querySelector(q)
-              );
-            } else if (q >= 0) {
-              element = this.el;
+            if (index > 0 || index === 0) {
+              let el = this.el;
               let i = 0;
-              while (element && (i < q)) {
-                element = element.parentElement;
+              while (el && (i < index)) {
+                el = el.parentElement;
                 (i++);
               }
-            } else {
-              element = q;
-            }
-            if (element) {
-              return element.__vox;
+              if (el) {
+                return el.__vox;
+              }
             }
           }
         },
@@ -1140,28 +1162,12 @@ var vox = (function () {
       )
     );
 
-    const vox = ({ el } = {}) => {
+    const vox = (q = '[vox]') => {
       const _ = {};
-      if (el !== void(0)) {
-        if (isString(el)) {
-          el = document.querySelector(el);
-        }
-        if (el) {
-          _.init = () => {
-            if (!el.__vox) {
-              vox_init(el);
-            }
-          };
-          _.exit = () => {
-            if (el.__vox) {
-              vox_exit(el);
-            }
-          };
-        }
-      } else {
+      if (isString(q)) {
         const els = (
           document.querySelectorAll(
-            '[vox]:not([vox] [vox])'
+            `${q}:not(${q} ${q})`
           )
         );
         _.init = () => {
@@ -1176,6 +1182,21 @@ var vox = (function () {
             if (el.__vox) {
               vox_exit(el);
             }
+          }
+        };
+      } else {
+        let { el } = (q || {});
+        if (isString(el)) {
+          el = document.querySelector(el);
+        }
+        _.init = () => {
+          if (el && !el.__vox) {
+            vox_init(el);
+          }
+        };
+        _.exit = () => {
+          if (el && el.__vox) {
+            vox_exit(el);
           }
         };
       }
@@ -1608,9 +1629,20 @@ var vox = (function () {
       const els = toRaw(
         arr[arr.length - 1].els
       );
+      const vox = (
+        arr[arr.length - 2].vox
+      );
       els[name] = el;
+      define(vox, {
+        [name]: {
+          value: el.__vox,
+          configurable: true,
+          enumerable: true
+        }
+      });
       el.__vox_cleanup.push(() => {
         delete els[name];
+        delete vox[name];
       });
     };
 
@@ -1705,6 +1737,7 @@ var vox = (function () {
       if (key) {
         let self = el;
         let string = '*';
+        let timer, delay;
         const options = {};
         for (const flag in flags) {
           switch (flag) {
@@ -1712,30 +1745,12 @@ var vox = (function () {
               key = camelize(key);
               break;
             }
-            case 'win':
-            case 'window': {
+            case 'window': case 'win': {
               self = window;
               break;
             }
-            case 'doc':
-            case 'document': {
+            case 'document': case 'doc': {
               self = document;
-              break;
-            }
-            case 'out':
-            case 'outside': {
-              self = document;
-              string = string.replace(
-                '*',
-                'if(!el.contains(event.target)){*}'
-              );
-              break;
-            }
-            case 'self': {
-              string = string.replace(
-                '*',
-                'if(event.target===el){*}'
-              );
               break;
             }
             case 'prevent': {
@@ -1752,17 +1767,36 @@ var vox = (function () {
               );
               break;
             }
+            case 'immediate': case 'imm': {
+              string = string.replace(
+                'stopPropagation',
+                'stopImmediatePropagation'
+              );
+              break;
+            }
+            case 'outside': case 'out': {
+              self = document;
+              string = string.replace(
+                '*',
+                'if(!el.contains(event.target)){*}'
+              );
+              break;
+            }
+            case 'self': {
+              string = string.replace(
+                '*',
+                'if(event.target===el){*}'
+              );
+              break;
+            }
             case 'back':
-            case 'del':
-            case 'delete':
+            case 'delete': case 'del':
             case 'down':
             case 'enter':
-            case 'esc':
-            case 'escape':
+            case 'escape': case 'esc':
             case 'forward':
             case 'left':
-            case 'mid':
-            case 'middle':
+            case 'middle': case 'mid':
             case 'right':
             case 'space':
             case 'tab':
@@ -1797,13 +1831,6 @@ var vox = (function () {
               );
               break;
             }
-            case 'repeat': {
-              string = string.replace(
-                '*',
-                'if(event.repeat){*}'
-              );
-              break;
-            }
             case 'capture': {
               options.capture = true;
               break;
@@ -1816,15 +1843,34 @@ var vox = (function () {
               options.passive = true;
               break;
             }
+            case 'debounce': case 'deb': {
+              timer = debounce;
+              break;
+            }
+            case 'throttle': case 'thr': {
+              timer = throttle;
+              break;
+            }
+            default: {
+              if (!isNaN(flag)) {
+                delay = +flag;
+              }
+            }
           }
         }
         if (string !== '*') {
-          expression = string.replace('*', expression);
+          expression = string.replace(
+            '*',
+            expression
+          );
         }
-        const handler = (
+        let handler = (
           evaluator(`(event)=>{${expression}}`)
             .call(el.__vox)
         );
+        if (timer) {
+          handler = timer(handler, delay);
+        }
         cleanup = () => {
           self.removeEventListener(
             key,

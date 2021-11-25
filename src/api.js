@@ -1,4 +1,4 @@
-import { define, isString } from './utils.js';
+import { define } from './utils.js';
 
 const api = define({}, {
   app: {
@@ -13,27 +13,20 @@ const api = define({}, {
             })
           );
       },
-      vox(q) {
-        if (q === void(0)) {
+      vox(index) {
+        if (index === void(0)) {
           return this;
         }
-        let element;
-        if (isString(q)) {
-          element = (
-            document.querySelector(q)
-          );
-        } else if (q >= 0) {
-          element = this.el;
+        if (index > 0 || index === 0) {
+          let el = this.el;
           let i = 0;
-          while (element && (i < q)) {
-            element = element.parentElement;
+          while (el && (i < index)) {
+            el = el.parentElement;
             (i++);
           }
-        } else {
-          element = q;
-        }
-        if (element) {
-          return element.__vox;
+          if (el) {
+            return el.__vox;
+          }
         }
       }
     },

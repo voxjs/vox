@@ -13,6 +13,7 @@ import {
   camelize,
   classify,
   controls,
+  debounce,
   define,
   extend,
   isArray,
@@ -20,31 +21,16 @@ import {
   isString,
   specials,
   styleify,
+  throttle,
   voxRE
 } from './utils.js';
 
-const vox = ({ el } = {}) => {
+const vox = (q = '[vox]') => {
   const _ = {};
-  if (el !== void(0)) {
-    if (isString(el)) {
-      el = document.querySelector(el);
-    }
-    if (el) {
-      _.init = () => {
-        if (!el.__vox) {
-          vox_init(el);
-        }
-      };
-      _.exit = () => {
-        if (el.__vox) {
-          vox_exit(el);
-        }
-      };
-    }
-  } else {
+  if (isString(q)) {
     const els = (
       document.querySelectorAll(
-        '[vox]:not([vox] [vox])'
+        `${q}:not(${q} ${q})`
       )
     );
     _.init = () => {
@@ -59,6 +45,21 @@ const vox = ({ el } = {}) => {
         if (el.__vox) {
           vox_exit(el);
         }
+      }
+    };
+  } else {
+    let { el } = (q || {});
+    if (isString(el)) {
+      el = document.querySelector(el);
+    }
+    _.init = () => {
+      if (el && !el.__vox) {
+        vox_init(el);
+      }
+    };
+    _.exit = () => {
+      if (el && el.__vox) {
+        vox_exit(el);
       }
     };
   }
@@ -491,9 +492,20 @@ const vox_is = (el, expression) => {
   const els = raw(
     arr[arr.length - 1].els
   );
+  const vox = (
+    arr[arr.length - 2].vox
+  );
   els[name] = el;
+  define(vox, {
+    [name]: {
+      value: el.__vox,
+      configurable: true,
+      enumerable: true
+    }
+  });
   el.__vox_cleanup.push(() => {
     delete els[name];
+    delete vox[name];
   });
 };
 
@@ -588,6 +600,7 @@ const vox_event = (el, expression, key, flags) => {
   if (key) {
     let self = el;
     let string = '*';
+    let timer, delay;
     const options = {};
     for (const flag in flags) {
       switch (flag) {
@@ -595,30 +608,12 @@ const vox_event = (el, expression, key, flags) => {
           key = camelize(key);
           break;
         }
-        case 'win':
-        case 'window': {
+        case 'window': case 'win': {
           self = window;
           break;
         }
-        case 'doc':
-        case 'document': {
+        case 'document': case 'doc': {
           self = document;
-          break;
-        }
-        case 'out':
-        case 'outside': {
-          self = document;
-          string = string.replace(
-            '*',
-            'if(!el.contains(event.target)){*}'
-          );
-          break;
-        }
-        case 'self': {
-          string = string.replace(
-            '*',
-            'if(event.target===el){*}'
-          );
           break;
         }
         case 'prevent': {
@@ -635,17 +630,36 @@ const vox_event = (el, expression, key, flags) => {
           );
           break;
         }
+        case 'immediate': case 'imm': {
+          string = string.replace(
+            'stopPropagation',
+            'stopImmediatePropagation'
+          );
+          break;
+        }
+        case 'outside': case 'out': {
+          self = document;
+          string = string.replace(
+            '*',
+            'if(!el.contains(event.target)){*}'
+          );
+          break;
+        }
+        case 'self': {
+          string = string.replace(
+            '*',
+            'if(event.target===el){*}'
+          );
+          break;
+        }
         case 'back':
-        case 'del':
-        case 'delete':
+        case 'delete': case 'del':
         case 'down':
         case 'enter':
-        case 'esc':
-        case 'escape':
+        case 'escape': case 'esc':
         case 'forward':
         case 'left':
-        case 'mid':
-        case 'middle':
+        case 'middle': case 'mid':
         case 'right':
         case 'space':
         case 'tab':
@@ -680,13 +694,6 @@ const vox_event = (el, expression, key, flags) => {
           );
           break;
         }
-        case 'repeat': {
-          string = string.replace(
-            '*',
-            'if(event.repeat){*}'
-          );
-          break;
-        }
         case 'capture': {
           options.capture = true;
           break;
@@ -699,15 +706,34 @@ const vox_event = (el, expression, key, flags) => {
           options.passive = true;
           break;
         }
+        case 'debounce': case 'deb': {
+          timer = debounce;
+          break;
+        }
+        case 'throttle': case 'thr': {
+          timer = throttle;
+          break;
+        }
+        default: {
+          if (!isNaN(flag)) {
+            delay = +flag;
+          }
+        }
       }
     }
     if (string !== '*') {
-      expression = string.replace('*', expression);
+      expression = string.replace(
+        '*',
+        expression
+      );
     }
-    const handler = (
+    let handler = (
       evaluator(`(event)=>{${expression}}`)
         .call(el.__vox)
     );
+    if (timer) {
+      handler = timer(handler, delay);
+    }
     cleanup = () => {
       self.removeEventListener(
         key,
