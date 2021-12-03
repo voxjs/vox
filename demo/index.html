@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 
 <html lang="en">
   <head>
@@ -7,7 +7,7 @@
     <title>vox.js</title>
     <meta name="description" content="instant interactivity for the web"/>
     <meta name="author" content="Paula Griguță"/>
-    <script src="../dist/vox.min.js"></script>
+    <script src="../dist/vox.min.js" defer></script>
     <style>
       * {
         font-family: sans-serif;
@@ -81,7 +81,7 @@
         <input vox:is="('input')"/>
       </form>
     </div>
-    <script>
+    <script type="module">
       const app = vox();
       app.init();
     </script>
