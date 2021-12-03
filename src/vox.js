@@ -207,10 +207,12 @@ const vox_init = (el) => {
         init();
         break;
       }
-      case 'aria':
-      case 'attr': {
-        const aria = name === 'aria';
-        vox_attr(el, expression, key, flags, aria);
+      case 'attr': case 'aria': case 'data': {
+        let alias;
+        if (name !== 'attr') {
+          alias = name;
+        }
+        vox_attr(el, expression, key, flags, alias);
         break;
       }
       case 'class': {
@@ -509,7 +511,7 @@ const vox_is = (el, expression) => {
   });
 };
 
-const vox_attr = (el, expression, key, flags, aria) => {
+const vox_attr = (el, expression, key, flags, alias) => {
   if (key && flags.camel) {
     key = camelize(key);
   }
@@ -526,8 +528,8 @@ const vox_attr = (el, expression, key, flags, aria) => {
       );
       for (let key in obj) {
         const value = obj[key];
-        if (aria) {
-          key = `aria-${key}`;
+        if (alias) {
+          key = `${alias}-${key}`;
         }
         if (value != null) {
           el.setAttribute(key, value);
