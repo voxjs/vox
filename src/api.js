@@ -9,6 +9,7 @@ const api = define({}, {
             new CustomEvent(event, {
               bubbles: true,
               cancelable: true,
+              composed: true,
               detail
             })
           );
