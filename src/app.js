@@ -15,10 +15,7 @@ const _ = {
       reactive(api.app)
     ]);
     app.__vox__.push(
-      shallowReadonly({
-        app,
-        els: readonly({})
-      })
+      shallowReadonly({ app })
     );
     delete this.app;
     return this.app = app;

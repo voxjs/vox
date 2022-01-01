@@ -12,14 +12,22 @@ const define = Object.defineProperties;
 
 const descriptor = Object.getOwnPropertyDescriptor;
 
+const directives = [
+  'skip',
+  'vox',
+  'for',
+  'if',
+  'init',
+  '*',
+  'exit'
+];
+
 const map = (...args) => extend(
   Object.create(null),
   ...args
 );
 
-const noop = () => {};
-
-const bindings = map({
+const keys = map({
   'accept-charset': 'acceptCharset',
   'accesskey': 'accessKey',
   'colspan': 'colSpan',
@@ -47,160 +55,61 @@ const bindings = map({
   'usemap': 'useMap'
 });
 
-const controls = map({
-  back: {
-    button: 3
-  },
-  del: {
-    keys: [ 'Backspace', 'Delete' ]
-  },
-  delete: {
-    keys: [ 'Backspace', 'Delete' ]
-  },
-  down: {
-    keys: [ 'ArrowDown', 'Down' ]
-  },
-  enter: {
-    keys: [ 'Enter' ]
-  },
-  esc: {
-    keys: [ 'Escape', 'Esc' ]
-  },
-  escape: {
-    keys: [ 'Escape', 'Esc' ]
-  },
-  forward: {
-    button: 4
-  },
-  left: {
-    button: 0,
-    keys: [ 'ArrowLeft', 'Left' ]
-  },
-  mid: {
-    button: 1
-  },
-  middle: {
-    button: 1
-  },
-  right: {
-    button: 2,
-    keys: [ 'ArrowRight', 'Right' ]
-  },
-  space: {
-    keys: [ ' ', 'Spacebar' ]
-  },
-  tab: {
-    keys: [ 'Tab' ]
-  },
-  up: {
-    keys: [ 'ArrowUp', 'Up' ]
-  }
-});
+const noop = () => {};
 
-const specials = [
-  'skip',
-  'vox',
-  'for',
-  'if',
-  'is',
-  'init',
-  '*',
-  'exit'
-];
-
-const classify = (value) => {
+const normalize = (value) => {
+  let classes;
   if (isString(value)) {
-    return value.trim();
-  }
-  if (isArray(value)) {
-    return value.map(classify).join(' ');
-  }
-  if (isObject(value)) {
-    return (
-      Object.keys(value)
-        .filter((key) => value[key])
-        .join(' ')
+    classes = (
+      value.split(/\s+/)
+        .filter(Boolean)
     );
-  }
-  if (value != null) {
-    return classify(
-      value.toString()
-    );
-  }
-  return '';
-};
-
-const styleify = (value) => {
-  if (isString(value)) {
-    return value.trim();
-  }
-  if (isArray(value)) {
-    return value.map(styleify).join(';');
-  }
-  if (isObject(value)) {
-    return (
-      Object.keys(value)
-        .map((key) => `${key}:${value[key]}`)
-        .join(';')
-    );
-  }
-  if (value != null) {
-    return styleify(
-      value.toString()
-    );
-  }
-  return '';
-};
-
-const debounce = (callback, delay) => {
-  if (isNaN(delay)) {
-    delay = 250;
-  }
-  let id;
-  return (...args) => {
-    clearTimeout(id);
-    id = setTimeout(() => {
-      id = null;
-      callback(...args);
-    }, delay);
-  };
-};
-
-const throttle = (callback, delay) => {
-  if (isNaN(delay)) {
-    delay = 250;
-  }
-  let id;
-  return (...args) => {
-    if (id == null) {
-      callback(...args);
-      id = setTimeout(() => {
-        id = null;
-      }, delay);
+  } else {
+    classes = [];
+    if (isArray(value)) {
+      for (const item of value) {
+        classes.push(
+          ...normalize(item)
+        );
+      }
+    } else if (isObject(value)) {
+      for (const name in value) {
+        if (name && value[name]) {
+          classes.push(name);
+        }
+      }
+    } else if (value != null) {
+      classes.push(value);
     }
-  };
+  }
+  return classes;
 };
 
-const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.a-z0-9-]+)?)?$/;
+const reducer = (accumulator, value) => {
+  if (value) {
+    const _ = value.split(':');
+    accumulator[_[0]] = _[1] || _[0];
+  }
+  return accumulator;
+};
+
+const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.:a-z0-9-]+)?)?$/;
 
 export {
-  bindings,
   camelize,
-  classify,
-  controls,
-  debounce,
   define,
   descriptor,
+  directives,
   extend,
   hasOwn,
   isArray,
   isObject,
   isReactive,
   isString,
+  keys,
   map,
   noop,
-  specials,
-  styleify,
-  throttle,
+  normalize,
+  reducer,
   voxRE
 };

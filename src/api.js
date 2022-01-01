@@ -14,22 +14,7 @@ const api = define({}, {
             })
           );
       },
-      vox(index) {
-        if (index === void(0)) {
-          return this;
-        }
-        if (index > 0 || index === 0) {
-          let el = this.el;
-          let i = 0;
-          while (el && (i < index)) {
-            el = el.parentElement;
-            (i++);
-          }
-          if (el) {
-            return el.__vox;
-          }
-        }
-      }
+      vox(index) {}
     },
     configurable: true,
     enumerable: true
