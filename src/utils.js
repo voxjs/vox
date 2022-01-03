@@ -9,6 +9,12 @@ import {
   isString
 } from '@vue/shared';
 
+const closest = (element) => (
+  (element)
+    ? element.closest('[vox]')
+    : null
+);
+
 const define = Object.defineProperties;
 
 const descriptor = Object.getOwnPropertyDescriptor;
@@ -98,6 +104,7 @@ const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.:a-z0-9-]+)?)?$/;
 
 export {
   camelize,
+  closest,
   define,
   descriptor,
   directives,
