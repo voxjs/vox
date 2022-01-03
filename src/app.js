@@ -12,6 +12,9 @@ const _ = {
       readonly({
         el: null
       }),
+      readonly({
+        els: {}
+      }),
       reactive(api.app)
     ]);
     app.__vox__.push(

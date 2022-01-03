@@ -24,6 +24,7 @@ const directives = [
   'vox',
   'for',
   'if',
+  'el',
   'init',
   '*',
   'exit'

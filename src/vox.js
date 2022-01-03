@@ -106,10 +106,10 @@ const vox_init = (el) => {
             : b[1]
         );
         if (i === -1) {
-          i = 5;
+          i = 6;
         }
         if (j === -1) {
-          j = 5;
+          j = 6;
         }
         return (i - j);
       })
@@ -145,7 +145,10 @@ const vox_init = (el) => {
         )) {
           el.__vox
             .__vox__.splice(
-              1, 0,
+              1, 1,
+              readonly({
+                els: {}
+              }),
               reactive(
                 evaluator(`(api)=>{with(api)return(${expression})}`)
                   .call(el.__vox)(api)
@@ -185,6 +188,10 @@ const vox_init = (el) => {
           vox_if(el, expression);
           return;
         }
+        break;
+      }
+      case 'el': {
+        vox_el(el, expression);
         break;
       }
       case 'init': {
@@ -471,6 +478,27 @@ const vox_if = (el, expression) => {
   });
   el.parentNode.replaceChild(node, el);
   run();
+};
+
+const vox_el = (el, expression) => {
+  const key = (
+    evaluator(expression)
+      .call(el.__vox)
+  );
+  const els = raw(
+    el.__vox
+      .__vox__[1].els
+  );
+  define(els, {
+    [key]: {
+      value: el,
+      configurable: true,
+      enumerable: true
+    }
+  });
+  el.__vox_cleanup.push(() => {
+    delete els[key];
+  });
 };
 
 const vox_attr = (el, expression, key, flags, alias) => {
