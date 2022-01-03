@@ -45,6 +45,11 @@ const camelizeRE = /-(\w)/g;
 const camelize = cacheStringFunction((str) => {
     return str.replace(camelizeRE, (_, c) => (c ? c.toUpperCase() : ''));
 });
+const hyphenateRE = /\B([A-Z])/g;
+/**
+ * @private
+ */
+const hyphenate = cacheStringFunction((str) => str.replace(hyphenateRE, '-$1').toLowerCase());
 // compare whether a value has changed, accounting for NaN.
 const hasChanged = (value, oldValue) => !Object.is(value, oldValue);
 
@@ -96,7 +101,7 @@ const targetMap = new WeakMap();
 let effectTrackDepth = 0;
 let trackOpBit = 1;
 /**
- * The bitwise track markers support at most 30 levels op recursion.
+ * The bitwise track markers support at most 30 levels of recursion.
  * This value is chosen to enable modern JS engines to use a SMI on all platforms.
  * When recursion depth is greater, fall back to using a full cleanup.
  */
@@ -383,7 +388,7 @@ const set = /*#__PURE__*/ createSetter();
 function createSetter(shallow = false) {
     return function set(target, key, value, receiver) {
         let oldValue = target[key];
-        if (!shallow) {
+        if (!shallow && !isReadonly(value)) {
             value = toRaw(value);
             oldValue = toRaw(oldValue);
             if (!isArray(target) && isRef(oldValue) && !isRef(value)) {
@@ -799,18 +804,33 @@ function isRef(r) {
 }
 Promise.resolve();
 
+const closest$1 = (element) => (
+  (element)
+    ? element.closest('[vox]')
+    : null
+);
+
 const define = Object.defineProperties;
 
 const descriptor = Object.getOwnPropertyDescriptor;
 
-const map = (...args) => extend(
+const directives = [
+  'skip',
+  'vox',
+  'for',
+  'if',
+  'el',
+  'init',
+  '*',
+  'exit'
+];
+
+const map = (...data) => extend(
   Object.create(null),
-  ...args
+  ...data
 );
 
-const noop = () => {};
-
-const bindings = map({
+const keys = map({
   'accept-charset': 'acceptCharset',
   'accesskey': 'accessKey',
   'colspan': 'colSpan',
@@ -838,141 +858,45 @@ const bindings = map({
   'usemap': 'useMap'
 });
 
-const controls = map({
-  back: {
-    button: 3
-  },
-  del: {
-    keys: [ 'Backspace', 'Delete' ]
-  },
-  delete: {
-    keys: [ 'Backspace', 'Delete' ]
-  },
-  down: {
-    keys: [ 'ArrowDown', 'Down' ]
-  },
-  enter: {
-    keys: [ 'Enter' ]
-  },
-  esc: {
-    keys: [ 'Escape', 'Esc' ]
-  },
-  escape: {
-    keys: [ 'Escape', 'Esc' ]
-  },
-  forward: {
-    button: 4
-  },
-  left: {
-    button: 0,
-    keys: [ 'ArrowLeft', 'Left' ]
-  },
-  mid: {
-    button: 1
-  },
-  middle: {
-    button: 1
-  },
-  right: {
-    button: 2,
-    keys: [ 'ArrowRight', 'Right' ]
-  },
-  space: {
-    keys: [ ' ', 'Spacebar' ]
-  },
-  tab: {
-    keys: [ 'Tab' ]
-  },
-  up: {
-    keys: [ 'ArrowUp', 'Up' ]
-  }
-});
+const noop = () => {};
 
-const specials = [
-  'skip',
-  'vox',
-  'for',
-  'if',
-  'is',
-  'init',
-  '*',
-  'exit'
-];
-
-const classify = (value) => {
+const normalize = (value) => {
+  let classes;
   if (isString(value)) {
-    return value.trim();
-  }
-  if (isArray(value)) {
-    return value.map(classify).join(' ');
-  }
-  if (isObject(value)) {
-    return (
-      Object.keys(value)
-        .filter((key) => value[key])
-        .join(' ')
+    classes = (
+      value.split(/\s+/)
+        .filter(Boolean)
     );
-  }
-  if (value != null) {
-    return classify(
-      value.toString()
-    );
-  }
-  return '';
-};
-
-const styleify = (value) => {
-  if (isString(value)) {
-    return value.trim();
-  }
-  if (isArray(value)) {
-    return value.map(styleify).join(';');
-  }
-  if (isObject(value)) {
-    return (
-      Object.keys(value)
-        .map((key) => `${key}:${value[key]}`)
-        .join(';')
-    );
-  }
-  if (value != null) {
-    return styleify(
-      value.toString()
-    );
-  }
-  return '';
-};
-
-const debounce = (callback, delay) => {
-  if (isNaN(delay)) {
-    delay = 250;
-  }
-  let id;
-  return (...args) => {
-    clearTimeout(id);
-    id = setTimeout(() => {
-      id = null;
-      callback(...args);
-    }, delay);
-  };
-};
-
-const throttle = (callback, delay) => {
-  if (isNaN(delay)) {
-    delay = 250;
-  }
-  let id;
-  return (...args) => {
-    if (id == null) {
-      callback(...args);
-      id = setTimeout(() => {
-        id = null;
-      }, delay);
+  } else {
+    classes = [];
+    if (isArray(value)) {
+      for (const item of value) {
+        classes.push(
+          ...normalize(item)
+        );
+      }
+    } else if (isObject(value)) {
+      for (const name in value) {
+        if (name && value[name]) {
+          classes.push(name);
+        }
+      }
+    } else if (value != null) {
+      classes.push(value);
     }
-  };
+  }
+  return classes;
 };
 
-const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.a-z0-9-]+)?)?$/;
+const reducer = (accumulator, value) => {
+  if (value) {
+    const _ = value.split(':');
+    accumulator[_[0]] = _[1] || _[0];
+  }
+  return accumulator;
+};
+
+const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.:a-z0-9-]+)?)?$/;
 
 const api = define({}, {
   app: {
@@ -983,22 +907,36 @@ const api = define({}, {
             new CustomEvent(event, {
               bubbles: true,
               cancelable: true,
+              composed: true,
               detail
             })
           );
       },
       vox(index) {
         if (index === void(0)) {
-          return this;
+          if (this.app === this) {
+            return this;
+          }
+          index = 0;
         }
         if (index > 0 || index === 0) {
-          let el = this.el;
+          let el = closest$1(
+            this.el
+          );
           let i = 0;
           while (el && (i < index)) {
-            el = el.parentElement;
+            el = closest$1(
+              el.parentElement
+            );
             (i++);
           }
           if (el) {
+            if (el.__vox_if) {
+              el = el.__vox_if;
+            }
+            if (el.__vox_for) {
+              el = el.__vox_for;
+            }
             return el.__vox;
           }
         }
@@ -1122,13 +1060,13 @@ const _ = {
       readonly({
         el: null
       }),
+      readonly({
+        els: {}
+      }),
       reactive(api.app)
     ]);
     app.__vox__.push(
-      shallowReadonly({
-        app,
-        els: readonly({})
-      })
+      shallowReadonly({ app })
     );
     delete this.app;
     return this.app = app;
@@ -1231,21 +1169,21 @@ const vox_init = (el) => {
             .split('.')[0]
             .split(':')
         );
-        let i = specials.indexOf(
+        let i = directives.indexOf(
           (a[1] === void(0))
             ? a[0]
             : a[1]
         );
-        let j = specials.indexOf(
+        let j = directives.indexOf(
           (b[1] === void(0))
             ? b[0]
             : b[1]
         );
         if (i === -1) {
-          i = 6; // 💩 i = specials.indexOf('*');
+          i = 6;
         }
         if (j === -1) {
-          j = 6; // 💩 j = specials.indexOf('*');
+          j = 6;
         }
         return (i - j);
       })
@@ -1257,12 +1195,7 @@ const vox_init = (el) => {
     const flags = (
       (result[3] || '')
         .split('.')
-        .reduce((flags, flag) => {
-          if (flag) {
-            flags[flag] = flag;
-          }
-          return flags;
-        }, {})
+        .reduce(reducer, {})
     );
     const expression = (
       el.getAttribute(dir)
@@ -1286,7 +1219,10 @@ const vox_init = (el) => {
         )) {
           el.__vox
             .__vox__.splice(
-              1, 0,
+              1, 1,
+              readonly({
+                els: {}
+              }),
               reactive(
                 evaluator(`(api)=>{with(api)return(${expression})}`)
                   .call(el.__vox)(api)
@@ -1328,8 +1264,8 @@ const vox_init = (el) => {
         }
         break;
       }
-      case 'is': {
-        vox_is(el, expression);
+      case 'el': {
+        vox_el(el, expression);
         break;
       }
       case 'init': {
@@ -1341,10 +1277,14 @@ const vox_init = (el) => {
         init();
         break;
       }
+      case 'attr':
       case 'aria':
-      case 'attr': {
-        const aria = name === 'aria';
-        vox_attr(el, expression, key, flags, aria);
+      case 'data': {
+        let alias;
+        if (name !== 'attr') {
+          alias = name;
+        }
+        vox_attr(el, expression, key, flags, alias);
         break;
       }
       case 'class': {
@@ -1364,7 +1304,7 @@ const vox_init = (el) => {
         break;
       }
       case 'style': {
-        vox_style(el, expression, key, flags);
+        vox_style(el, expression, key);
         break;
       }
       case 'exit': {
@@ -1379,7 +1319,7 @@ const vox_init = (el) => {
           const key = name.slice(2);
           vox_event(el, expression, key, flags);
         } else {
-          const key = bindings[name] || name;
+          const key = keys[name] || name;
           if (key && (key in el)) {
             vox_bind(el, expression, key);
           }
@@ -1410,7 +1350,7 @@ const vox_for = (el, expression) => {
     ','
   );
   const content = [];
-  const self = document.createTextNode('');
+  const node = document.createTextNode('');
   const { run, cleanup } = reaction(
     () => {
       let value = (
@@ -1431,7 +1371,7 @@ const vox_for = (el, expression) => {
         );
       } else if (value > 0) {
         value = Array.from(
-          Array(value),
+          new Array(value),
           (_, i) => [ i, i + 1 ]
         );
       } else {
@@ -1524,7 +1464,7 @@ const vox_for = (el, expression) => {
             }
           });
         }
-        self.parentNode.insertBefore(element, self);
+        node.parentNode.insertBefore(element, node);
         content[i] = element;
         element.__vox = context([
           readonly({
@@ -1557,9 +1497,9 @@ const vox_for = (el, expression) => {
     content.forEach((element) => {
       element.parentNode.removeChild(element);
     });
-    self.parentNode.replaceChild(el, self);
+    node.parentNode.replaceChild(el, node);
   });
-  el.parentNode.replaceChild(self, el);
+  el.parentNode.replaceChild(node, el);
   run();
 };
 
@@ -1567,7 +1507,7 @@ const vox_if = (el, expression) => {
   let condition = false;
   const content = [];
   const element = el.cloneNode(true);
-  const self = document.createTextNode('');
+  const node = document.createTextNode('');
   const { run, cleanup } = reaction(
     () => (
       evaluator(`!!(${expression})`)
@@ -1577,7 +1517,7 @@ const vox_if = (el, expression) => {
       if (condition !== value) {
         condition = value;
         if (condition) {
-          self.parentNode.insertBefore(element, self);
+          node.parentNode.insertBefore(element, node);
           content.push(element);
           element.__vox = context([
             readonly({
@@ -1608,42 +1548,34 @@ const vox_if = (el, expression) => {
     if (condition) {
       element.parentNode.removeChild(element);
     }
-    self.parentNode.replaceChild(el, self);
+    node.parentNode.replaceChild(el, node);
   });
-  el.parentNode.replaceChild(self, el);
+  el.parentNode.replaceChild(node, el);
   run();
 };
 
-const vox_is = (el, expression) => {
-  const name = (
+const vox_el = (el, expression) => {
+  const key = (
     evaluator(expression)
       .call(el.__vox)
   );
-  const arr = (
-    el.__vox
-      .__vox__
-  );
   const els = toRaw(
-    arr[arr.length - 1].els
+    el.__vox
+      .__vox__[1].els
   );
-  const vox = (
-    arr[arr.length - 2].vox
-  );
-  els[name] = el;
-  define(vox, {
-    [name]: {
-      value: el.__vox,
+  define(els, {
+    [key]: {
+      value: el,
       configurable: true,
       enumerable: true
     }
   });
   el.__vox_cleanup.push(() => {
-    delete els[name];
-    delete vox[name];
+    delete els[key];
   });
 };
 
-const vox_attr = (el, expression, key, flags, aria) => {
+const vox_attr = (el, expression, key, flags, alias) => {
   if (key && flags.camel) {
     key = camelize(key);
   }
@@ -1660,8 +1592,8 @@ const vox_attr = (el, expression, key, flags, aria) => {
       );
       for (let key in obj) {
         const value = obj[key];
-        if (aria) {
-          key = `aria-${key}`;
+        if (alias) {
+          key = `${alias}-${key}`;
         }
         if (value != null) {
           el.setAttribute(key, value);
@@ -1709,32 +1641,22 @@ const vox_class = (el, expression, key, flags) => {
       if (key) {
         el.classList.toggle(key, value);
       } else {
-        const classList = (
-          classify(value)
-            .split(/\s+/)
-            .filter(Boolean)
-        );
         el.classList.remove(...classes);
-        el.classList.add(...classList);
-        classes = classList;
+        el.classList.add(...(
+          classes = normalize(value)
+        ));
       }
     }
   );
-  el.__vox_cleanup.push(() => {
-    cleanup();
-    if (!key) {
-      el.classList.remove(...classes);
-    }
-  });
+  el.__vox_cleanup.push(cleanup);
   run();
 };
 
 const vox_event = (el, expression, key, flags) => {
   let cleanup;
   if (key) {
-    let self = el;
-    let string = '*';
-    let timer, delay;
+    let target = el;
+    const fn = new Array(2);
     const options = {};
     for (const flag in flags) {
       switch (flag) {
@@ -1742,149 +1664,272 @@ const vox_event = (el, expression, key, flags) => {
           key = camelize(key);
           break;
         }
-        case 'window': case 'win': {
-          self = window;
+        case 'win':
+        case 'window': {
+          target = window;
           break;
         }
-        case 'document': case 'doc': {
-          self = document;
+        case 'doc':
+        case 'document': {
+          target = document;
           break;
         }
-        case 'prevent': {
-          string = string.replace(
-            '*',
-            'event.preventDefault();*'
-          );
-          break;
-        }
-        case 'stop': {
-          string = string.replace(
-            '*',
-            'event.stopPropagation();*'
-          );
-          break;
-        }
-        case 'immediate': case 'imm': {
-          string = string.replace(
-            'stopPropagation',
-            'stopImmediatePropagation'
-          );
-          break;
-        }
-        case 'outside': case 'out': {
-          self = document;
-          string = string.replace(
-            '*',
-            'if(!el.contains(event.target)){*}'
-          );
+        case 'out':
+        case 'outside': {
+          if (target === el) {
+            target = document;
+          }
+          fn[1] = (event) => {
+            if (!el.contains(event.target)) {
+              fn[2](event);
+            }
+          };
           break;
         }
         case 'self': {
-          string = string.replace(
-            '*',
-            'if(event.target===el){*}'
-          );
+          const i = fn.push((event) => {
+            if (event.target === el) {
+              fn[i](event);
+            }
+          });
           break;
         }
-        case 'back':
-        case 'delete': case 'del':
-        case 'down':
-        case 'enter':
-        case 'escape': case 'esc':
-        case 'forward':
-        case 'left':
-        case 'middle': case 'mid':
-        case 'right':
-        case 'space':
-        case 'tab':
+        case 'prevent': {
+          const i = fn.push((event) => {
+            event.preventDefault();
+            fn[i](event);
+          });
+          break;
+        }
+        case 'stop': {
+          const i = fn.push((event) => {
+            event.stopPropagation();
+            fn[i](event);
+          });
+          break;
+        }
+        case 'immediate': {
+          const i = fn.push((event) => {
+            event.stopImmediatePropagation();
+            fn[i](event);
+          });
+          break;
+        }
+        case 'left': {
+          const i = fn.push((event) => {
+            if (
+              event.button === 0 ||
+              event.key === 'ArrowLeft' ||
+              event.key === 'Left'
+            ) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'mid':
+        case 'middle': {
+          const i = fn.push((event) => {
+            if (event.button === 1) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'right': {
+          const i = fn.push((event) => {
+            if (
+              event.button === 2 ||
+              event.key === 'ArrowRight' ||
+              event.key === 'Right'
+            ) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
         case 'up': {
-          const control = controls[flag];
-          const conditions = [];
-          if (control.button >= 0) {
-            conditions.push(
-              `event.button===${control.button}`
-            );
-          }
-          if (control.keys) {
-            conditions.push(
-              ...control.keys.map(
-                (key) => `event.key==="${key}"`
-              )
-            );
-          }
-          string = string.replace(
-            '*',
-            `if(${conditions.join('||')}){*}`
-          );
+          const i = fn.push((event) => {
+            if (
+              event.key === 'ArrowUp' ||
+              event.key === 'Up'
+            ) {
+              fn[i](event);
+            }
+          });
           break;
         }
-        case 'alt':
-        case 'ctrl':
-        case 'meta':
+        case 'down': {
+          const i = fn.push((event) => {
+            if (
+              event.key === 'ArrowDown' ||
+              event.key === 'Down'
+            ) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'del':
+        case 'delete': {
+          const i = fn.push((event) => {
+            if (
+              event.key === 'Backspace' ||
+              event.key === 'Delete' ||
+              event.key === 'Del'
+            ) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'enter': {
+          const i = fn.push((event) => {
+            if (event.key === 'Enter') {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'esc':
+        case 'escape': {
+          const i = fn.push((event) => {
+            if (
+              event.key === 'Escape' ||
+              event.key === 'Esc'
+            ) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'space': {
+          const i = fn.push((event) => {
+            if (
+              event.key === ' ' ||
+              event.key === 'Spacebar'
+            ) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'tab': {
+          const i = fn.push((event) => {
+            if (event.key === 'Tab') {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'alt': {
+          const i = fn.push((event) => {
+            if (event.altKey) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'ctrl': {
+          const i = fn.push((event) => {
+            if (event.ctrlKey) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'meta': {
+          const i = fn.push((event) => {
+            if (event.metaKey) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
         case 'shift': {
-          string = string.replace(
-            '*',
-            `if(event.${flag}Key){*}`
+          const i = fn.push((event) => {
+            if (event.shiftKey) {
+              fn[i](event);
+            }
+          });
+          break;
+        }
+        case 'deb':
+        case 'debounce': {
+          let id;
+          const delay = (
+            (flags[flag] >= 0)
+              ? +(flags[flag])
+              : 250
           );
+          fn[0] = (event) => {
+            clearTimeout(id);
+            id = setTimeout(() => {
+              id = null;
+              fn[1](event);
+            }, delay);
+          };
           break;
         }
-        case 'capture': {
-          options.capture = true;
+        case 'thr':
+        case 'throttle': {
+          let id;
+          const delay = (
+            (flags[flag] >= 0)
+              ? +(flags[flag])
+              : 250
+          );
+          fn[0] = (event) => {
+            if (id == null) {
+              fn[1](event);
+              id = setTimeout(() => {
+                id = null;
+              }, delay);
+            }
+          };
           break;
         }
-        case 'once': {
-          options.once = true;
-          break;
-        }
+        case 'capture':
+        case 'once':
         case 'passive': {
-          options.passive = true;
+          options[flag] = true;
           break;
-        }
-        case 'debounce': case 'deb': {
-          timer = debounce;
-          break;
-        }
-        case 'throttle': case 'thr': {
-          timer = throttle;
-          break;
-        }
-        default: {
-          if (!isNaN(flag)) {
-            delay = +flag;
-          }
         }
       }
     }
-    if (string !== '*') {
-      expression = string.replace(
-        '*',
-        expression
-      );
-    }
-    let handler = (
+    fn.push(
       evaluator(`(event)=>{${expression}}`)
         .call(el.__vox)
     );
-    if (timer) {
-      handler = timer(handler, delay);
+    if (!fn[1]) {
+      fn[1] = fn[2];
     }
+    if (!fn[0]) {
+      fn[0] = fn[1];
+    }
+    target.addEventListener(
+      key,
+      fn[0],
+      options
+    );
     cleanup = () => {
-      self.removeEventListener(
+      target.removeEventListener(
         key,
-        handler,
+        fn[0],
         options
       );
     };
-    self.addEventListener(
-      key,
-      handler,
-      options
-    );
   } else {
     const obj = (
       evaluator(expression)
         .call(el.__vox)
     );
+    for (const key in obj) {
+      el.addEventListener(
+        key,
+        obj[key]
+      );
+    }
     cleanup = () => {
       for (const key in obj) {
         el.removeEventListener(
@@ -1893,12 +1938,6 @@ const vox_event = (el, expression, key, flags) => {
         );
       }
     };
-    for (const key in obj) {
-      el.addEventListener(
-        key,
-        obj[key]
-      );
-    }
   }
   el.__vox_cleanup.push(cleanup);
 };
@@ -1937,50 +1976,54 @@ const vox_run = (el, expression) => {
 };
 
 const vox_style = (el, expression, key, flags) => {
-  if (key && flags.camel) {
-    key = camelize(key);
-  }
-  let keys = [];
+  let style = {};
   const { run, cleanup } = reaction(
     () => (
       evaluator(expression)
         .call(el.__vox)
     ),
     (value) => {
-      if (key) {
-        el.style[key] = value;
-      } else {
-        const style = (
-          styleify(value)
-            .split(/\s*;+\s*/)
-            .reduce(
-              (style, value) => {
-                if (value.includes(':')) {
-                  const css = value.split(/\s*:\s*/);
-                  if (css[0]) {
-                    style[css[0]] = css[1];
-                  }
-                }
-                return style;
-              }, {}
-            )
+      for (const key in style) {
+        el.style.removeProperty(key);
+      }
+      style = {};
+      if (isObject(value)) {
+        key = (
+          (key === 'var')
+            ? '--'
+            : (key)
+              ? `${key}-`
+              : ''
         );
-        for (const key of keys) {
-          el.style[key] = '';
+        for (const name in value) {
+          style[key + hyphenate(name)] = value[name];
         }
-        extend(el.style, style);
-        keys = Object.keys(style);
+      } else if (key) {
+        style[key] = value;
+      }
+      for (const key in style) {
+        let value = style[key];
+        let priority;
+        if (
+          value
+            .toString()
+            .includes('important')
+        ) {
+          value = value.replace(
+            '!important',
+            ''
+          );
+          priority = 'important';
+        }
+        el.style.setProperty(
+          key,
+          value,
+          priority
+        );
       }
     }
   );
-  el.__vox_cleanup.push(() => {
-    cleanup();
-    if (!key) {
-      for (const key of keys) {
-        el.style[key] = '';
-      }
-    }
-  });
+  el.__vox_cleanup.push(cleanup);
   run();
 };
 
@@ -2017,7 +2060,7 @@ const vox_exit = (el) => {
 
 const config = {};
 
-const version = "0.2.0";
+const version = "0.3.0";
 
 define(vox, {
   api: {
