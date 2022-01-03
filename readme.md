@@ -118,7 +118,7 @@ Vox is a tiny (&#8776;7KB) JavaScript library that allows you to enhance your HT
     todos.push(els.input.value);
     els.input.value = '';
   }">
-    <input vox:is="('input')"/>
+    <input vox:el="('input')"/>
   </form>
 </div>
 ```

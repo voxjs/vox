@@ -75,10 +75,10 @@
         </li>
       </ol>
       <form vox:onsubmit.prevent="{
-        todos.push(el[0].value);
-        el[0].value = '';
+        todos.push(els.input.value);
+        els.input.value = '';
       }">
-        <input/>
+        <input vox:el="('input')"/>
       </form>
     </div>
     <script type="module">
