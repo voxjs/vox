@@ -30,9 +30,9 @@ const directives = [
   'exit'
 ];
 
-const map = (...args) => extend(
+const map = (...data) => extend(
   Object.create(null),
-  ...args
+  ...data
 );
 
 const keys = map({

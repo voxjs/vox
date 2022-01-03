@@ -1,4 +1,7 @@
-import { closest, define } from './utils.js';
+import {
+  closest,
+  define
+} from './utils.js';
 
 const api = define({}, {
   app: {
