@@ -13,6 +13,7 @@ import {
   define,
   directives,
   extend,
+  hyphenate,
   isArray,
   isObject,
   isString,
@@ -873,9 +874,6 @@ const vox_run = (el, expression) => {
 };
 
 const vox_style = (el, expression, key, flags) => {
-  if (key && flags.camel) {
-    key = camelize(key);
-  }
   let style = {};
   const { run, cleanup } = reaction(
     () => (
@@ -886,20 +884,20 @@ const vox_style = (el, expression, key, flags) => {
       for (const key in style) {
         el.style.removeProperty(key);
       }
-      if (key) {
-        style = {};
-        if (isObject(value)) {
-          if (key === 'var') {
-            key = '-';
-          }
-          for (const name in value) {
-            style[`${key}-${name}`] = value[name];
-          }
-        } else {
-          style[key] = value;
+      style = {};
+      if (isObject(value)) {
+        key = (
+          (key === 'var')
+            ? '--'
+            : (key)
+              ? `${key}-`
+              : ''
+        );
+        for (const name in value) {
+          style[key + hyphenate(name)] = value[name];
         }
-      } else {
-        style = value;
+      } else if (key) {
+        style[key] = value;
       }
       for (const key in style) {
         let value = style[key];

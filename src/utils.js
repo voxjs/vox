@@ -3,6 +3,7 @@ import {
   camelize,
   extend,
   hasOwn,
+  hyphenate,
   isArray,
   isObject,
   isString
@@ -102,6 +103,7 @@ export {
   directives,
   extend,
   hasOwn,
+  hyphenate,
   isArray,
   isObject,
   isReactive,
