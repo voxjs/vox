@@ -295,7 +295,10 @@ const vox_for = (el, expression) => {
           value,
           (char, i) => [ i, char ]
         );
-      } else if (value > 0) {
+      } else if (
+        value > 0 &&
+        value < Math.pow(2, 32)
+      ) {
         value = Array.from(
           new Array(value),
           (_, i) => [ i, i + 1 ]
