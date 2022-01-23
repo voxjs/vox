@@ -1,12 +1,13 @@
 import { api } from './api.js';
-import { closest } from './app.js';
+import { app } from './app.js';
 import { context } from './context.js';
 import { evaluator } from './evaluator.js';
 import {
   raw,
   reaction,
   reactive,
-  readonly
+  readonly,
+  shallowReadonly
 } from './reactivity.js';
 import {
   camelize,
@@ -68,7 +69,7 @@ const vox_init = (el) => {
   if (!el.__vox) {
     el.__vox = context([
       readonly({ el }),
-      ...closest(el)
+      ...(el.parentNode.__vox || app())
         .__vox__.slice(1)
     ]);
   }
@@ -143,16 +144,34 @@ const vox_init = (el) => {
           el.__vox_for ||
           el.__vox_if
         )) {
+          const {
+            app,
+            vox
+          } = raw(
+            el.__vox
+              .__vox__.pop()
+          );
           el.__vox
             .__vox__.splice(
-              1, 1,
-              readonly({
-                els: {}
-              }),
+              1, 0,
               reactive(
                 evaluator(`(api)=>{with(api)return(${expression})}`)
                   .call(el.__vox)(api)
               )
+            );
+          el.__vox
+            .__vox__.push(
+              shallowReadonly({
+                app,
+                els: readonly({}),
+                vox: (index = 0) => (
+                  (index === 0)
+                    ? el.__vox
+                    : (index > 0)
+                      ? vox(index - 1)
+                      : void(0)
+                )
+              })
             );
           if (
             el.__vox
@@ -484,23 +503,26 @@ const vox_if = (el, expression) => {
 };
 
 const vox_el = (el, expression) => {
-  const key = (
+  const name = (
     evaluator(expression)
       .call(el.__vox)
   );
-  const els = raw(
+  const { els } = raw(
     el.__vox
-      .__vox__[1].els
+      .__vox__[
+        el.__vox
+          .__vox__.length - 1
+      ]
   );
   define(els, {
-    [key]: {
+    [name]: {
       value: el,
       configurable: true,
       enumerable: true
     }
   });
   el.__vox_cleanup.push(() => {
-    delete els[key];
+    delete els[name];
   });
 };
 

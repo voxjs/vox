@@ -6,33 +6,29 @@ import {
   shallowReadonly
 } from './reactivity.js';
 
-const _ = {
-  get app() {
-    const app = context([
+let value;
+
+const app = () => {
+  if (!value) {
+    value = context([
       readonly({
         el: null
       }),
-      readonly({
-        els: {}
-      }),
       reactive(api.app)
     ]);
-    app.__vox__.push(
-      shallowReadonly({ app })
-    );
-    delete this.app;
-    return this.app = app;
-  }
-};
-
-const closest = (el) => {
-  if (el.parentElement) {
-    return (
-      el.parentElement
-        .__vox || _.app
+    value.__vox__.push(
+      shallowReadonly({
+        app: value,
+        els: readonly({}),
+        vox: (index) => (
+          (index === void(0))
+            ? value
+            : void(0)
+        )
+      })
     );
   }
-  return _.app;
+  return value;
 };
 
-export { closest };
+export { app };

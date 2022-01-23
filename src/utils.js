@@ -1,4 +1,7 @@
-import { isReactive } from '@vue/reactivity';
+import {
+  isReactive,
+  isReadonly
+} from '@vue/reactivity';
 import {
   camelize,
   extend,
@@ -8,12 +11,6 @@ import {
   isObject,
   isString
 } from '@vue/shared';
-
-const closest = (element) => (
-  (element)
-    ? element.closest('[vox]')
-    : null
-);
 
 const define = Object.defineProperties;
 
@@ -105,7 +102,6 @@ const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.:a-z0-9-]+)?)?$/;
 
 export {
   camelize,
-  closest,
   define,
   descriptor,
   directives,
@@ -115,6 +111,7 @@ export {
   isArray,
   isObject,
   isReactive,
+  isReadonly,
   isString,
   keys,
   map,
