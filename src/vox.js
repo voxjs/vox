@@ -14,6 +14,7 @@ import {
   define,
   directives,
   extend,
+  freeze,
   hyphenate,
   isArray,
   isObject,
@@ -34,14 +35,14 @@ const vox = (q = '[vox]') => {
     );
     _.init = () => {
       for (const el of els) {
-        if (!el.__vox) {
+        if (!el.vox) {
           vox_init(el);
         }
       }
     };
     _.exit = () => {
       for (const el of els) {
-        if (el.__vox) {
+        if (el.vox) {
           vox_exit(el);
         }
       }
@@ -52,12 +53,12 @@ const vox = (q = '[vox]') => {
       el = document.querySelector(el);
     }
     _.init = () => {
-      if (el && !el.__vox) {
+      if (el && !el.vox) {
         vox_init(el);
       }
     };
     _.exit = () => {
-      if (el && el.__vox) {
+      if (el && el.vox) {
         vox_exit(el);
       }
     };
@@ -66,21 +67,21 @@ const vox = (q = '[vox]') => {
 };
 
 const vox_init = (el) => {
-  if (!el.__vox) {
-    el.__vox = context([
+  if (!el.vox) {
+    el.vox = context(
       readonly({ el }),
-      ...(el.parentNode.__vox || app())
-        .__vox__.slice(1)
-    ]);
+      ...(el.parentNode.vox || app())
+        .data.slice(1)
+    );
   }
-  if (!el.__vox_cleanup) {
-    el.__vox_cleanup = [];
+  if (!el.vox_cleanup) {
+    el.vox_cleanup = [];
   }
-  if (!el.__vox_init) {
-    el.__vox_init = [];
+  if (!el.vox_init) {
+    el.vox_init = [];
   }
-  if (!el.__vox_exit) {
-    el.__vox_exit = [];
+  if (!el.vox_exit) {
+    el.vox_exit = [];
   }
   const dirs = (
     el.getAttributeNames()
@@ -132,7 +133,7 @@ const vox_init = (el) => {
       case 'skip': {
         if (!expression || (
           evaluator(expression)
-            .call(el.__vox)
+            .call(el.vox)
         )) {
           vox_exit(el);
           return;
@@ -140,70 +141,54 @@ const vox_init = (el) => {
         break;
       }
       case 'vox': {
-        if (!(
-          el.__vox_for ||
-          el.__vox_if
-        )) {
-          const {
-            app,
-            vox
-          } = raw(
-            el.__vox
-              .__vox__.pop()
+        if (!el.vox_for && !el.vox_if) {
+          const { app, vox } = (
+            el.vox.data.pop()
           );
-          el.__vox
-            .__vox__.splice(
-              1, 0,
-              reactive(
-                evaluator(`(api)=>{with(api)return(${expression})}`)
-                  .call(el.__vox)(api)
+          el.vox.data.splice(
+            1, 0,
+            reactive(
+              evaluator(`(api)=>{with(api)return(${expression})}`)
+                .call(el.vox)(api)
+            )
+          );
+          el.vox.data.push(
+            shallowReadonly({
+              app,
+              els: readonly({}),
+              vox: (index = 0) => (
+                (index === 0)
+                  ? el.vox
+                  : (index > 0)
+                    ? vox(index - 1)
+                    : void(0)
               )
+            })
+          );
+          freeze(el.vox.data);
+          if (el.vox.data[1].init) {
+            el.vox_init.push(
+              el.vox.init.bind(el.vox)
             );
-          el.__vox
-            .__vox__.push(
-              shallowReadonly({
-                app,
-                els: readonly({}),
-                vox: (index = 0) => (
-                  (index === 0)
-                    ? el.__vox
-                    : (index > 0)
-                      ? vox(index - 1)
-                      : void(0)
-                )
-              })
-            );
-          if (
-            el.__vox
-              .__vox__[1].init
-          ) {
-            el.__vox_init.push(
-              el.__vox.init
-                .bind(el.__vox)
-            );
-            el.__vox.init();
+            el.vox.init();
           }
-          if (
-            el.__vox
-              .__vox__[1].exit
-          ) {
-            el.__vox_exit.push(
-              el.__vox.exit
-                .bind(el.__vox)
+          if (el.vox.data[1].exit) {
+            el.vox_exit.push(
+              el.vox.exit.bind(el.vox)
             );
           }
         }
         break;
       }
       case 'for': {
-        if (!el.__vox_for) {
+        if (!el.vox_for) {
           vox_for(el, expression);
           return;
         }
         break;
       }
       case 'if': {
-        if (!el.__vox_if) {
+        if (!el.vox_if) {
           vox_if(el, expression);
           return;
         }
@@ -216,9 +201,9 @@ const vox_init = (el) => {
       case 'init': {
         const init = (
           evaluator(`()=>{${expression}}`)
-            .call(el.__vox)
+            .call(el.vox)
         );
-        el.__vox_init.push(init);
+        el.vox_init.push(init);
         init();
         break;
       }
@@ -253,9 +238,9 @@ const vox_init = (el) => {
         break;
       }
       case 'exit': {
-        el.__vox_exit.push(
+        el.vox_exit.push(
           evaluator(`()=>{${expression}}`)
-            .call(el.__vox)
+            .call(el.vox)
         );
         break;
       }
@@ -272,8 +257,8 @@ const vox_init = (el) => {
       }
     }
   }
-  (el.__vox_content || (
-    el.__vox_content = (
+  (el.vox_content || (
+    el.vox_content = (
       Array.from(el.children)
     )
   ))
@@ -300,7 +285,7 @@ const vox_for = (el, expression) => {
     () => {
       let value = (
         evaluator(expression)
-          .call(el.__vox)
+          .call(el.vox)
       );
       if (isArray(value)) {
         value = Array.from(
@@ -329,52 +314,52 @@ const vox_for = (el, expression) => {
     },
     (value) => {
       let i = 0;
-      while ( content[i] &&  value[i] ) {
-        const variables = (
+      while (content[i] && value[i]) {
+        const data = (
           content[i]
-            .__vox
-            .__vox__[1]
+            .vox
+            .data[1]
         );
         if (vars[0]) {
-          define(variables, {
+          define(data, {
             [vars[0]]: {
               writable: true
             }
           });
-          extend(variables, {
+          extend(data, {
             [vars[0]]: value[i][1]
           });
-          define(variables, {
+          define(data, {
             [vars[0]]: {
               writable: false
             }
           });
         }
         if (vars[1]) {
-          define(variables, {
+          define(data, {
             [vars[1]]: {
               writable: true
             }
           });
-          extend(variables, {
+          extend(data, {
             [vars[1]]: value[i][0]
           });
-          define(variables, {
+          define(data, {
             [vars[1]]: {
               writable: false
             }
           });
         }
         if (vars[2]) {
-          define(variables, {
+          define(data, {
             [vars[2]]: {
               writable: true
             }
           });
-          extend(variables, {
+          extend(data, {
             [vars[2]]: i
           });
-          define(variables, {
+          define(data, {
             [vars[2]]: {
               writable: false
             }
@@ -382,11 +367,11 @@ const vox_for = (el, expression) => {
         }
         (i++);
       }
-      while (!content[i] &&  value[i] ) {
-        const element = el.cloneNode(true);
-        const variables = {};
+      while (!content[i] && value[i]) {
+        const clone = el.cloneNode(true);
+        const scope = {};
         if (vars[0]) {
-          define(variables, {
+          define(scope, {
             [vars[0]]: {
               value: value[i][1],
               configurable: true,
@@ -395,7 +380,7 @@ const vox_for = (el, expression) => {
           });
         }
         if (vars[1]) {
-          define(variables, {
+          define(scope, {
             [vars[1]]: {
               value: value[i][0],
               configurable: true,
@@ -404,7 +389,7 @@ const vox_for = (el, expression) => {
           });
         }
         if (vars[2]) {
-          define(variables, {
+          define(scope, {
             [vars[2]]: {
               value: i,
               configurable: true,
@@ -412,38 +397,35 @@ const vox_for = (el, expression) => {
             }
           });
         }
-        node.parentNode.insertBefore(element, node);
-        content[i] = element;
-        element.__vox = context([
+        node.parentNode.insertBefore(clone, node);
+        content[i] = clone;
+        clone.vox = context(
           readonly({
-            el: element
+            el: clone
           }),
-          reactive(variables),
-          ...(
-            el.__vox
-              .__vox__.slice(1)
-          )
-        ]);
-        element.__vox_for = el;
-        vox_init(element);
+          reactive(scope),
+          ...el.vox.data.slice(1)
+        );
+        clone.vox_for = el;
+        vox_init(clone);
         (i++);
       }
-      while ( content[i] && !value[i] ) {
-        const element = content[i];
-        vox_exit(element);
+      while (content[i] && !value[i]) {
+        const clone = content[i];
+        vox_exit(clone);
         content[i] = null;
-        element.parentNode.removeChild(element);
+        clone.parentNode.removeChild(clone);
         (i++);
       }
       content.length = value.length;
     }
   );
-  el.__vox_for = el;
-  el.__vox_content = content;
-  el.__vox_cleanup.push(() => {
+  el.vox_for = el;
+  el.vox_content = content;
+  el.vox_cleanup.push(() => {
     cleanup();
-    content.forEach((element) => {
-      element.parentNode.removeChild(element);
+    content.forEach((clone) => {
+      clone.parentNode.removeChild(clone);
     });
     node.parentNode.replaceChild(el, node);
   });
@@ -454,47 +436,44 @@ const vox_for = (el, expression) => {
 const vox_if = (el, expression) => {
   let condition = false;
   const content = [];
-  const element = el.cloneNode(true);
   const node = document.createTextNode('');
+  const clone = el.cloneNode(true);
   const { run, cleanup } = reaction(
     () => (
       evaluator(`!!(${expression})`)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       if (condition !== value) {
         condition = value;
         if (condition) {
-          node.parentNode.insertBefore(element, node);
-          content.push(element);
-          element.__vox = context([
+          node.parentNode.insertBefore(clone, node);
+          content.push(clone);
+          clone.vox = context(
             readonly({
-              el: element
+              el: clone
             }),
-            ...(
-              el.__vox
-                .__vox__.slice(1)
-            )
-          ]);
-          if (el.__vox_for) {
-            element.__vox_for = el.__vox_for;
+            ...el.vox.data.slice(1)
+          );
+          if (el.vox_for) {
+            clone.vox_for = el.vox_for;
           }
-          element.__vox_if = el;
-          vox_init(element);
+          clone.vox_if = el;
+          vox_init(clone);
         } else {
-          vox_exit(element);
+          vox_exit(clone);
           content.pop();
-          element.parentNode.removeChild(element);
+          clone.parentNode.removeChild(clone);
         }
       }
     }
   );
-  el.__vox_if = el;
-  el.__vox_content = content;
-  el.__vox_cleanup.push(() => {
+  el.vox_if = el;
+  el.vox_content = content;
+  el.vox_cleanup.push(() => {
     cleanup();
     if (condition) {
-      element.parentNode.removeChild(element);
+      clone.parentNode.removeChild(clone);
     }
     node.parentNode.replaceChild(el, node);
   });
@@ -505,14 +484,12 @@ const vox_if = (el, expression) => {
 const vox_el = (el, expression) => {
   const name = (
     evaluator(expression)
-      .call(el.__vox)
+      .call(el.vox)
   );
   const { els } = raw(
-    el.__vox
-      .__vox__[
-        el.__vox
-          .__vox__.length - 1
-      ]
+    el.vox.data[
+      el.vox.data.length - 1
+    ]
   );
   define(els, {
     [name]: {
@@ -521,7 +498,7 @@ const vox_el = (el, expression) => {
       enumerable: true
     }
   });
-  el.__vox_cleanup.push(() => {
+  el.vox_cleanup.push(() => {
     delete els[name];
   });
 };
@@ -533,16 +510,16 @@ const vox_attr = (el, expression, key, flags, alias) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
-      const obj = (
+      const attrs = (
         (key)
           ? { [key]: value }
           : value
       );
-      for (let key in obj) {
-        const value = obj[key];
+      for (let key in attrs) {
+        const value = attrs[key];
         if (alias) {
           key = `${alias}-${key}`;
         }
@@ -554,7 +531,7 @@ const vox_attr = (el, expression, key, flags, alias) => {
       }
     }
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
@@ -562,7 +539,7 @@ const vox_bind = (el, expression, key) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       el[key] = value;
@@ -572,9 +549,9 @@ const vox_bind = (el, expression, key) => {
     key === 'innerHTML' ||
     key === 'textContent'
   ) {
-    el.__vox_content = [];
+    el.vox_content = [];
   }
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
@@ -586,7 +563,7 @@ const vox_class = (el, expression, key, flags) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       if (key) {
@@ -599,7 +576,7 @@ const vox_class = (el, expression, key, flags) => {
       }
     }
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
@@ -850,7 +827,7 @@ const vox_event = (el, expression, key, flags) => {
     }
     fn.push(
       evaluator(`(event)=>{${expression}}`)
-        .call(el.__vox)
+        .call(el.vox)
     );
     if (!fn[1]) {
       fn[1] = fn[2];
@@ -871,26 +848,26 @@ const vox_event = (el, expression, key, flags) => {
       );
     };
   } else {
-    const obj = (
+    const events = (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     );
-    for (const key in obj) {
+    for (const key in events) {
       el.addEventListener(
         key,
-        obj[key]
+        events[key]
       );
     }
     cleanup = () => {
-      for (const key in obj) {
+      for (const key in events) {
         el.removeEventListener(
           key,
-          obj[key]
+          events[key]
         );
       }
     };
   }
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
 };
 
 const vox_focus = (el, expression) => {
@@ -899,7 +876,7 @@ const vox_focus = (el, expression) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(`!!(${expression})`)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       if (condition !== value) {
@@ -913,16 +890,16 @@ const vox_focus = (el, expression) => {
       }
     }
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
 const vox_run = (el, expression) => {
   const { run, cleanup } = reaction(
     evaluator(`()=>{${expression}}`)
-      .call(el.__vox)
+      .call(el.vox)
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
@@ -931,7 +908,7 @@ const vox_style = (el, expression, key, flags) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       for (const key in style) {
@@ -974,38 +951,38 @@ const vox_style = (el, expression, key, flags) => {
       }
     }
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
 const vox_exit = (el) => {
-  if (el.__vox_content) {
-    el.__vox_content.forEach(vox_exit);
-    delete el.__vox_content;
+  if (el.vox_content) {
+    el.vox_content.forEach(vox_exit);
+    delete el.vox_content;
   }
-  if (el.__vox_cleanup) {
-    el.__vox_cleanup.forEach(
+  if (el.vox_cleanup) {
+    el.vox_cleanup.forEach(
       (cleanup) => cleanup()
     );
-    delete el.__vox_cleanup;
+    delete el.vox_cleanup;
   }
-  if (el.__vox) {
-    delete el.__vox;
+  if (el.vox) {
+    delete el.vox;
   }
-  if (el.__vox_for) {
-    delete el.__vox_for;
+  if (el.vox_for) {
+    delete el.vox_for;
   }
-  if (el.__vox_if) {
-    delete el.__vox_if;
+  if (el.vox_if) {
+    delete el.vox_if;
   }
-  if (el.__vox_init) {
-    delete el.__vox_init;
+  if (el.vox_init) {
+    delete el.vox_init;
   }
-  if (el.__vox_exit) {
-    el.__vox_exit.forEach(
+  if (el.vox_exit) {
+    el.vox_exit.forEach(
       (exit) => exit()
     );
-    delete el.__vox_exit;
+    delete el.vox_exit;
   }
 };
 

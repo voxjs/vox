@@ -5,18 +5,19 @@ import {
   readonly,
   shallowReadonly
 } from './reactivity.js';
+import { freeze } from './utils.js';
 
 let value;
 
 const app = () => {
   if (!value) {
-    value = context([
+    value = context(
       readonly({
         el: null
       }),
       reactive(api.app)
-    ]);
-    value.__vox__.push(
+    );
+    value.data.push(
       shallowReadonly({
         app: value,
         els: readonly({}),
@@ -27,6 +28,7 @@ const app = () => {
         )
       })
     );
+    freeze(value.data);
   }
   return value;
 };

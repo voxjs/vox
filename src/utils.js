@@ -27,6 +27,8 @@ const directives = [
   'exit'
 ];
 
+const freeze = Object.freeze;
+
 const map = (...data) => extend(
   Object.create(null),
   ...data
@@ -106,6 +108,7 @@ export {
   descriptor,
   directives,
   extend,
+  freeze,
   hasOwn,
   hyphenate,
   isArray,
