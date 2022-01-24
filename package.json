@@ -18,14 +18,14 @@
   "module": "dist/vox.mjs",
   "repository": "github:voxjs/vox",
   "dependencies": {
-    "@vue/reactivity": "^3.2.26",
-    "@vue/shared": "^3.2.26"
+    "@vue/reactivity": "^3.2.29",
+    "@vue/shared": "^3.2.29"
   },
   "devDependencies": {
     "@rollup/plugin-json": "^4.1.0",
-    "@rollup/plugin-node-resolve": "^13.1.2",
+    "@rollup/plugin-node-resolve": "^13.1.3",
     "@rollup/plugin-replace": "^3.0.1",
-    "rollup": "^2.62.0",
+    "rollup": "^2.66.0",
     "rollup-plugin-terser": "^7.0.2"
   },
   "scripts": {
