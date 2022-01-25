@@ -5,7 +5,6 @@ import {
   readonly,
   shallowReadonly
 } from './reactivity.js';
-import { freeze } from './utils.js';
 
 let value;
 
@@ -28,7 +27,6 @@ const app = () => {
         )
       })
     );
-    freeze(value.data);
   }
   return value;
 };

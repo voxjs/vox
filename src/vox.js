@@ -14,7 +14,6 @@ import {
   define,
   directives,
   extend,
-  freeze,
   hyphenate,
   isArray,
   isObject,
@@ -165,7 +164,6 @@ const vox_init = (el) => {
               )
             })
           );
-          freeze(el.vox.data);
           if (el.vox.data[1].init) {
             el.vox_init.push(
               el.vox.init.bind(el.vox)
