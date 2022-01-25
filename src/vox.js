@@ -585,6 +585,10 @@ const vox_event = (el, expression, key, flags) => {
   if (key) {
     let target = el;
     const fn = new Array(2);
+    const handler = (
+      evaluator(`(event)=>{with(event){${expression}}}`)
+        .call(el.vox)
+    );
     const options = {};
     for (const flag in flags) {
       switch (flag) {
@@ -825,10 +829,12 @@ const vox_event = (el, expression, key, flags) => {
         }
       }
     }
-    fn.push(
-      evaluator(`(event)=>{${expression}}`)
-        .call(el.vox)
-    );
+    fn.push((event) => {
+      handler({
+        event,
+        ...event.detail
+      });
+    });
     if (!fn[1]) {
       fn[1] = fn[2];
     }
@@ -853,9 +859,18 @@ const vox_event = (el, expression, key, flags) => {
         .call(el.vox)
     );
     for (const key in events) {
+      const handler = events[key];
       el.addEventListener(
         key,
-        events[key]
+        events[key] = (
+          (event) => {
+            handler.call(
+              el.vox,
+              event,
+              event.detail
+            );
+          }
+        )
       );
     }
     cleanup = () => {
