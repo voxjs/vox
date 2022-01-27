@@ -582,11 +582,11 @@ const vox_event = (el, expression, key, flags) => {
   let cleanup;
   if (key) {
     let target = el;
-    const fn = new Array(2);
     const handler = (
       evaluator(`(event)=>{with(event){${expression}}}`)
         .call(el.vox)
     );
+    const event = new Array(2);
     const options = {};
     for (const flag in flags) {
       switch (flag) {
@@ -609,177 +609,177 @@ const vox_event = (el, expression, key, flags) => {
           if (target === el) {
             target = document;
           }
-          fn[1] = (event) => {
-            if (!el.contains(event.target)) {
-              fn[2](event);
+          event[1] = (e) => {
+            if (!el.contains(e.target)) {
+              event[2](e);
             }
           };
           break;
         }
         case 'self': {
-          const i = fn.push((event) => {
-            if (event.target === el) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.target === el) {
+              event[i](e);
             }
           });
           break;
         }
         case 'prevent': {
-          const i = fn.push((event) => {
-            event.preventDefault();
-            fn[i](event);
+          const i = event.push((e) => {
+            e.preventDefault();
+            event[i](e);
           });
           break;
         }
         case 'stop': {
-          const i = fn.push((event) => {
-            event.stopPropagation();
-            fn[i](event);
+          const i = event.push((e) => {
+            e.stopPropagation();
+            event[i](e);
           });
           break;
         }
         case 'immediate': {
-          const i = fn.push((event) => {
-            event.stopImmediatePropagation();
-            fn[i](event);
+          const i = event.push((e) => {
+            e.stopImmediatePropagation();
+            event[i](e);
           });
           break;
         }
         case 'left': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.button === 0 ||
-              event.key === 'ArrowLeft' ||
-              event.key === 'Left'
+              e.button === 0 ||
+              e.key === 'ArrowLeft' ||
+              e.key === 'Left'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'mid':
         case 'middle': {
-          const i = fn.push((event) => {
-            if (event.button === 1) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.button === 1) {
+              event[i](e);
             }
           });
           break;
         }
         case 'right': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.button === 2 ||
-              event.key === 'ArrowRight' ||
-              event.key === 'Right'
+              e.button === 2 ||
+              e.key === 'ArrowRight' ||
+              e.key === 'Right'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'up': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === 'ArrowUp' ||
-              event.key === 'Up'
+              e.key === 'ArrowUp' ||
+              e.key === 'Up'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'down': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === 'ArrowDown' ||
-              event.key === 'Down'
+              e.key === 'ArrowDown' ||
+              e.key === 'Down'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'del':
         case 'delete': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === 'Backspace' ||
-              event.key === 'Delete' ||
-              event.key === 'Del'
+              e.key === 'Backspace' ||
+              e.key === 'Delete' ||
+              e.key === 'Del'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'enter': {
-          const i = fn.push((event) => {
-            if (event.key === 'Enter') {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.key === 'Enter') {
+              event[i](e);
             }
           });
           break;
         }
         case 'esc':
         case 'escape': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === 'Escape' ||
-              event.key === 'Esc'
+              e.key === 'Escape' ||
+              e.key === 'Esc'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'space': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === ' ' ||
-              event.key === 'Spacebar'
+              e.key === ' ' ||
+              e.key === 'Spacebar'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'tab': {
-          const i = fn.push((event) => {
-            if (event.key === 'Tab') {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.key === 'Tab') {
+              event[i](e);
             }
           });
           break;
         }
         case 'alt': {
-          const i = fn.push((event) => {
-            if (event.altKey) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.altKey) {
+              event[i](e);
             }
           });
           break;
         }
         case 'ctrl': {
-          const i = fn.push((event) => {
-            if (event.ctrlKey) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.ctrlKey) {
+              event[i](e);
             }
           });
           break;
         }
         case 'meta': {
-          const i = fn.push((event) => {
-            if (event.metaKey) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.metaKey) {
+              event[i](e);
             }
           });
           break;
         }
         case 'shift': {
-          const i = fn.push((event) => {
-            if (event.shiftKey) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.shiftKey) {
+              event[i](e);
             }
           });
           break;
@@ -792,11 +792,11 @@ const vox_event = (el, expression, key, flags) => {
               ? +(flags[flag])
               : 250
           );
-          fn[0] = (event) => {
+          event[0] = (e) => {
             clearTimeout(id);
             id = setTimeout(() => {
               id = null;
-              fn[1](event);
+              event[1](e);
             }, delay);
           };
           break;
@@ -809,9 +809,9 @@ const vox_event = (el, expression, key, flags) => {
               ? +(flags[flag])
               : 250
           );
-          fn[0] = (event) => {
+          event[0] = (e) => {
             if (id == null) {
-              fn[1](event);
+              event[1](e);
               id = setTimeout(() => {
                 id = null;
               }, delay);
@@ -827,27 +827,27 @@ const vox_event = (el, expression, key, flags) => {
         }
       }
     }
-    fn.push((event) => {
+    event.push((e) => {
       handler({
-        event,
-        ...event.detail
+        event: e,
+        ...e.detail
       });
     });
-    if (!fn[1]) {
-      fn[1] = fn[2];
+    if (!event[1]) {
+      event[1] = event[2];
     }
-    if (!fn[0]) {
-      fn[0] = fn[1];
+    if (!event[0]) {
+      event[0] = event[1];
     }
     target.addEventListener(
       key,
-      fn[0],
+      event[0],
       options
     );
     cleanup = () => {
       target.removeEventListener(
         key,
-        fn[0],
+        event[0],
         options
       );
     };
@@ -860,15 +860,13 @@ const vox_event = (el, expression, key, flags) => {
       const handler = events[key];
       el.addEventListener(
         key,
-        events[key] = (
-          (event) => {
-            handler.call(
-              el.vox,
-              event,
-              event.detail
-            );
-          }
-        )
+        events[key] = (e) => {
+          handler.call(
+            el.vox,
+            e,
+            e.detail
+          );
+        }
       );
     }
     cleanup = () => {
