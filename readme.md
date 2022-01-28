@@ -115,10 +115,11 @@ Vox is a tiny (&#8776;7KB) JavaScript library that allows you to enhance your HT
     </li>
   </ol>
   <form vox:onsubmit.prevent="{
-    todos.push(els.input.value);
+    todos.push(els.input.value || '…');
     els.input.value = '';
   }">
-    <input vox:el="('input')"/>
+    <input placeholder="…" vox:el="('input')"/>
+    <button>add to-do</button>
   </form>
 </div>
 ```
