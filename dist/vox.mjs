@@ -122,7 +122,7 @@ class ReactiveEffect {
         if (!this.active) {
             return this.fn();
         }
-        if (!effectStack.includes(this)) {
+        if (!effectStack.length || !effectStack.includes(this)) {
             try {
                 effectStack.push((activeEffect = this));
                 enableTracking();
@@ -345,6 +345,9 @@ function createGetter(isReadonly = false, shallow = false) {
         else if (key === "__v_isReadonly" /* IS_READONLY */) {
             return isReadonly;
         }
+        else if (key === "__v_isShallow" /* IS_SHALLOW */) {
+            return shallow;
+        }
         else if (key === "__v_raw" /* RAW */ &&
             receiver ===
                 (isReadonly
@@ -388,9 +391,14 @@ const set = /*#__PURE__*/ createSetter();
 function createSetter(shallow = false) {
     return function set(target, key, value, receiver) {
         let oldValue = target[key];
+        if (isReadonly(oldValue) && isRef(oldValue) && !isRef(value)) {
+            return false;
+        }
         if (!shallow && !isReadonly(value)) {
-            value = toRaw(value);
-            oldValue = toRaw(oldValue);
+            if (!isShallow(value)) {
+                value = toRaw(value);
+                oldValue = toRaw(oldValue);
+            }
             if (!isArray(target) && isRef(oldValue) && !isRef(value)) {
                 oldValue.value = value;
                 return true;
@@ -739,7 +747,7 @@ function getTargetType(value) {
 }
 function reactive(target) {
     // if trying to observe a readonly proxy, return the readonly version.
-    if (target && target["__v_isReadonly" /* IS_READONLY */]) {
+    if (isReadonly(target)) {
         return target;
     }
     return createReactiveObject(target, false, mutableHandlers, mutableCollectionHandlers, reactiveMap);
@@ -793,6 +801,9 @@ function isReactive(value) {
 function isReadonly(value) {
     return !!(value && value["__v_isReadonly" /* IS_READONLY */]);
 }
+function isShallow(value) {
+    return !!(value && value["__v_isShallow" /* IS_SHALLOW */]);
+}
 function toRaw(observed) {
     const raw = observed && observed["__v_raw" /* RAW */];
     return raw ? toRaw(raw) : observed;
@@ -803,12 +814,6 @@ function isRef(r) {
     return Boolean(r && r.__v_isRef === true);
 }
 Promise.resolve();
-
-const closest$1 = (element) => (
-  (element)
-    ? element.closest('[vox]')
-    : null
-);
 
 const define = Object.defineProperties;
 
@@ -901,45 +906,18 @@ const voxRE = /^vox(?::([a-z-]+)([:a-z0-9-]+)?([.:a-z0-9-]+)?)?$/;
 const api = define({}, {
   app: {
     value: {
-      emit(event, detail) {
+      emit(event, data) {
         (this.el || document)
           .dispatchEvent(
             new CustomEvent(event, {
               bubbles: true,
               cancelable: true,
               composed: true,
-              detail
+              detail: {
+                ...data
+              }
             })
           );
-      },
-      vox(index) {
-        if (index === void(0)) {
-          if (this.app === this) {
-            return this;
-          }
-          index = 0;
-        }
-        if (index > 0 || index === 0) {
-          let el = closest$1(
-            this.el
-          );
-          let i = 0;
-          while (el && (i < index)) {
-            el = closest$1(
-              el.parentElement
-            );
-            (i++);
-          }
-          if (el) {
-            if (el.__vox_if) {
-              el = el.__vox_if;
-            }
-            if (el.__vox_for) {
-              el = el.__vox_for;
-            }
-            return el.__vox;
-          }
-        }
       }
     },
     configurable: true,
@@ -947,42 +925,41 @@ const api = define({}, {
   }
 });
 
-const cache$1 = (vox, arr, obj, key, alt) => {
-  if (!(key in obj)) {
-    const owner = (
-      arr.find(
-        (obj) => hasOwn(obj, key)
-      ) ||
-      alt && arr.find(isReactive)
+const cache$1 = (target, key, value, context) => {
+  if (!(key in target)) {
+    let data = target.data.find(
+      (data) => hasOwn(data, key)
     );
-    if (owner) {
+    if (!data && value) {
+      data = target.data.find(isReactive);
+    }
+    if (data) {
       const {
         get,
         set,
         writable
       } = (
-        descriptor(owner, key) ||
-        {}
+        descriptor(data, key) || {}
       );
       const _ = {};
       if (get || set) {
         if (get) {
-          _.get = () => get.call(vox);
+          _.get = () => get.call(context);
         }
         if (set) {
           _.set = (value) => {
-            set.call(vox, value);
+            set.call(context, value);
           };
         }
       } else {
-        _.get = () => owner[key];
+        _.get = () => data[key];
         if (writable !== false) {
           _.set = (value) => {
-            owner[key] = value;
+            data[key] = value;
           };
         }
       }
-      define(obj, {
+      define(target, {
         [key]: {
           get: _.get || (() => void(0)),
           set: _.set || ((value) => {}),
@@ -991,43 +968,47 @@ const cache$1 = (vox, arr, obj, key, alt) => {
       });
     }
   }
-  return obj;
+  return target;
 };
 
-const context = (arr) => {
-  let vox;
-  return (
-    vox = new Proxy({}, {
-      get: (obj, key) => {
-        if (key === Symbol.unscopables) {
-          return;
-        }
-        if (key === '__vox__') {
-          return arr;
-        }
-        return (
-          Reflect.get(
-            cache$1(vox, arr, obj, key),
-            key
-          )
-        );
-      },
-      has: (obj, key) => (
-        Reflect.has(
-          cache$1(vox, arr, obj, key),
-          key
-        )
-      ),
-      set: (obj, key, value) => (
-        Reflect.set(
-          cache$1(vox, arr, obj, key, true),
+const handler = {
+  get: (target, key, context) => (
+    (key === Symbol.unscopables)
+      ? void(0)
+      : Reflect.get(
+          cache$1(target, key, false, context),
           key,
-          value
+          context
         )
-      )
-    })
-  );
+  ),
+  has: (target, key) => (
+    Reflect.has(target, key) ||
+    target.data.some(
+      (data) => hasOwn(data, key)
+    )
+  ),
+  set: (target, key, value, context) => (
+    Reflect.set(
+      cache$1(target, key, true, context),
+      key,
+      value,
+      context
+    )
+  )
 };
+
+const context = (...data) => (
+  new Proxy(
+    define({}, {
+      data: {
+        value: data,
+        configurable: true,
+        enumerable: false
+      }
+    }),
+    handler
+  )
+);
 
 const reaction = (getter, runner) => {
   let value;
@@ -1054,33 +1035,29 @@ const reaction = (getter, runner) => {
   };
 };
 
-const _ = {
-  get app() {
-    const app = context([
+let value;
+
+const app = () => {
+  if (!value) {
+    value = context(
       readonly({
         el: null
       }),
-      readonly({
-        els: {}
-      }),
       reactive(api.app)
-    ]);
-    app.__vox__.push(
-      shallowReadonly({ app })
     );
-    delete this.app;
-    return this.app = app;
-  }
-};
-
-const closest = (el) => {
-  if (el.parentElement) {
-    return (
-      el.parentElement
-        .__vox || _.app
+    value.data.push(
+      shallowReadonly({
+        app: value,
+        els: readonly({}),
+        vox: (index) => (
+          (index === void(0))
+            ? value
+            : void(0)
+        )
+      })
     );
   }
-  return _.app;
+  return value;
 };
 
 const cache = map();
@@ -1107,14 +1084,14 @@ const vox = (q = '[vox]') => {
     );
     _.init = () => {
       for (const el of els) {
-        if (!el.__vox) {
+        if (!el.vox) {
           vox_init(el);
         }
       }
     };
     _.exit = () => {
       for (const el of els) {
-        if (el.__vox) {
+        if (el.vox) {
           vox_exit(el);
         }
       }
@@ -1125,12 +1102,12 @@ const vox = (q = '[vox]') => {
       el = document.querySelector(el);
     }
     _.init = () => {
-      if (el && !el.__vox) {
+      if (el && !el.vox) {
         vox_init(el);
       }
     };
     _.exit = () => {
-      if (el && el.__vox) {
+      if (el && el.vox) {
         vox_exit(el);
       }
     };
@@ -1139,21 +1116,21 @@ const vox = (q = '[vox]') => {
 };
 
 const vox_init = (el) => {
-  if (!el.__vox) {
-    el.__vox = context([
+  if (!el.vox) {
+    el.vox = context(
       readonly({ el }),
-      ...closest(el)
-        .__vox__.slice(1)
-    ]);
+      ...(el.parentNode.vox || app())
+        .data.slice(1)
+    );
   }
-  if (!el.__vox_cleanup) {
-    el.__vox_cleanup = [];
+  if (!el.vox_cleanup) {
+    el.vox_cleanup = [];
   }
-  if (!el.__vox_init) {
-    el.__vox_init = [];
+  if (!el.vox_init) {
+    el.vox_init = [];
   }
-  if (!el.__vox_exit) {
-    el.__vox_exit = [];
+  if (!el.vox_exit) {
+    el.vox_exit = [];
   }
   const dirs = (
     el.getAttributeNames()
@@ -1205,7 +1182,7 @@ const vox_init = (el) => {
       case 'skip': {
         if (!expression || (
           evaluator(expression)
-            .call(el.__vox)
+            .call(el.vox)
         )) {
           vox_exit(el);
           return;
@@ -1213,52 +1190,53 @@ const vox_init = (el) => {
         break;
       }
       case 'vox': {
-        if (!(
-          el.__vox_for ||
-          el.__vox_if
-        )) {
-          el.__vox
-            .__vox__.splice(
-              1, 1,
-              readonly({
-                els: {}
-              }),
-              reactive(
-                evaluator(`(api)=>{with(api)return(${expression})}`)
-                  .call(el.__vox)(api)
+        if (!el.vox_for && !el.vox_if) {
+          const { app, vox } = (
+            el.vox.data.pop()
+          );
+          el.vox.data.splice(
+            1, 0,
+            reactive(
+              evaluator(`(api)=>{with(api)return(${expression})}`)
+                .call(el.vox)(api)
+            )
+          );
+          el.vox.data.push(
+            shallowReadonly({
+              app,
+              els: readonly({}),
+              vox: (index = 0) => (
+                (index === 0)
+                  ? el.vox
+                  : (index > 0)
+                    ? vox(index - 1)
+                    : void(0)
               )
+            })
+          );
+          if (el.vox.data[1].init) {
+            el.vox_init.push(
+              el.vox.init.bind(el.vox)
             );
-          if (
-            el.__vox
-              .__vox__[1].init
-          ) {
-            el.__vox_init.push(
-              el.__vox.init
-                .bind(el.__vox)
-            );
-            el.__vox.init();
+            el.vox.init();
           }
-          if (
-            el.__vox
-              .__vox__[1].exit
-          ) {
-            el.__vox_exit.push(
-              el.__vox.exit
-                .bind(el.__vox)
+          if (el.vox.data[1].exit) {
+            el.vox_exit.push(
+              el.vox.exit.bind(el.vox)
             );
           }
         }
         break;
       }
       case 'for': {
-        if (!el.__vox_for) {
+        if (!el.vox_for) {
           vox_for(el, expression);
           return;
         }
         break;
       }
       case 'if': {
-        if (!el.__vox_if) {
+        if (!el.vox_if) {
           vox_if(el, expression);
           return;
         }
@@ -1271,9 +1249,9 @@ const vox_init = (el) => {
       case 'init': {
         const init = (
           evaluator(`()=>{${expression}}`)
-            .call(el.__vox)
+            .call(el.vox)
         );
-        el.__vox_init.push(init);
+        el.vox_init.push(init);
         init();
         break;
       }
@@ -1308,9 +1286,9 @@ const vox_init = (el) => {
         break;
       }
       case 'exit': {
-        el.__vox_exit.push(
+        el.vox_exit.push(
           evaluator(`()=>{${expression}}`)
-            .call(el.__vox)
+            .call(el.vox)
         );
         break;
       }
@@ -1327,8 +1305,8 @@ const vox_init = (el) => {
       }
     }
   }
-  (el.__vox_content || (
-    el.__vox_content = (
+  (el.vox_content || (
+    el.vox_content = (
       Array.from(el.children)
     )
   ))
@@ -1355,7 +1333,7 @@ const vox_for = (el, expression) => {
     () => {
       let value = (
         evaluator(expression)
-          .call(el.__vox)
+          .call(el.vox)
       );
       if (isArray(value)) {
         value = Array.from(
@@ -1369,7 +1347,10 @@ const vox_for = (el, expression) => {
           value,
           (char, i) => [ i, char ]
         );
-      } else if (value > 0) {
+      } else if (
+        value > 0 &&
+        value < Math.pow(2, 32)
+      ) {
         value = Array.from(
           new Array(value),
           (_, i) => [ i, i + 1 ]
@@ -1381,52 +1362,52 @@ const vox_for = (el, expression) => {
     },
     (value) => {
       let i = 0;
-      while ( content[i] &&  value[i] ) {
-        const variables = (
+      while (content[i] && value[i]) {
+        const data = (
           content[i]
-            .__vox
-            .__vox__[1]
+            .vox
+            .data[1]
         );
         if (vars[0]) {
-          define(variables, {
+          define(data, {
             [vars[0]]: {
               writable: true
             }
           });
-          extend(variables, {
+          extend(data, {
             [vars[0]]: value[i][1]
           });
-          define(variables, {
+          define(data, {
             [vars[0]]: {
               writable: false
             }
           });
         }
         if (vars[1]) {
-          define(variables, {
+          define(data, {
             [vars[1]]: {
               writable: true
             }
           });
-          extend(variables, {
+          extend(data, {
             [vars[1]]: value[i][0]
           });
-          define(variables, {
+          define(data, {
             [vars[1]]: {
               writable: false
             }
           });
         }
         if (vars[2]) {
-          define(variables, {
+          define(data, {
             [vars[2]]: {
               writable: true
             }
           });
-          extend(variables, {
+          extend(data, {
             [vars[2]]: i
           });
-          define(variables, {
+          define(data, {
             [vars[2]]: {
               writable: false
             }
@@ -1434,11 +1415,11 @@ const vox_for = (el, expression) => {
         }
         (i++);
       }
-      while (!content[i] &&  value[i] ) {
-        const element = el.cloneNode(true);
-        const variables = {};
+      while (!content[i] && value[i]) {
+        const clone = el.cloneNode(true);
+        const scope = {};
         if (vars[0]) {
-          define(variables, {
+          define(scope, {
             [vars[0]]: {
               value: value[i][1],
               configurable: true,
@@ -1447,7 +1428,7 @@ const vox_for = (el, expression) => {
           });
         }
         if (vars[1]) {
-          define(variables, {
+          define(scope, {
             [vars[1]]: {
               value: value[i][0],
               configurable: true,
@@ -1456,7 +1437,7 @@ const vox_for = (el, expression) => {
           });
         }
         if (vars[2]) {
-          define(variables, {
+          define(scope, {
             [vars[2]]: {
               value: i,
               configurable: true,
@@ -1464,38 +1445,35 @@ const vox_for = (el, expression) => {
             }
           });
         }
-        node.parentNode.insertBefore(element, node);
-        content[i] = element;
-        element.__vox = context([
+        node.parentNode.insertBefore(clone, node);
+        content[i] = clone;
+        clone.vox = context(
           readonly({
-            el: element
+            el: clone
           }),
-          reactive(variables),
-          ...(
-            el.__vox
-              .__vox__.slice(1)
-          )
-        ]);
-        element.__vox_for = el;
-        vox_init(element);
+          reactive(scope),
+          ...el.vox.data.slice(1)
+        );
+        clone.vox_for = el;
+        vox_init(clone);
         (i++);
       }
-      while ( content[i] && !value[i] ) {
-        const element = content[i];
-        vox_exit(element);
+      while (content[i] && !value[i]) {
+        const clone = content[i];
+        vox_exit(clone);
         content[i] = null;
-        element.parentNode.removeChild(element);
+        clone.parentNode.removeChild(clone);
         (i++);
       }
       content.length = value.length;
     }
   );
-  el.__vox_for = el;
-  el.__vox_content = content;
-  el.__vox_cleanup.push(() => {
+  el.vox_for = el;
+  el.vox_content = content;
+  el.vox_cleanup.push(() => {
     cleanup();
-    content.forEach((element) => {
-      element.parentNode.removeChild(element);
+    content.forEach((clone) => {
+      clone.parentNode.removeChild(clone);
     });
     node.parentNode.replaceChild(el, node);
   });
@@ -1506,47 +1484,44 @@ const vox_for = (el, expression) => {
 const vox_if = (el, expression) => {
   let condition = false;
   const content = [];
-  const element = el.cloneNode(true);
   const node = document.createTextNode('');
+  const clone = el.cloneNode(true);
   const { run, cleanup } = reaction(
     () => (
       evaluator(`!!(${expression})`)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       if (condition !== value) {
         condition = value;
         if (condition) {
-          node.parentNode.insertBefore(element, node);
-          content.push(element);
-          element.__vox = context([
+          node.parentNode.insertBefore(clone, node);
+          content.push(clone);
+          clone.vox = context(
             readonly({
-              el: element
+              el: clone
             }),
-            ...(
-              el.__vox
-                .__vox__.slice(1)
-            )
-          ]);
-          if (el.__vox_for) {
-            element.__vox_for = el.__vox_for;
+            ...el.vox.data.slice(1)
+          );
+          if (el.vox_for) {
+            clone.vox_for = el.vox_for;
           }
-          element.__vox_if = el;
-          vox_init(element);
+          clone.vox_if = el;
+          vox_init(clone);
         } else {
-          vox_exit(element);
+          vox_exit(clone);
           content.pop();
-          element.parentNode.removeChild(element);
+          clone.parentNode.removeChild(clone);
         }
       }
     }
   );
-  el.__vox_if = el;
-  el.__vox_content = content;
-  el.__vox_cleanup.push(() => {
+  el.vox_if = el;
+  el.vox_content = content;
+  el.vox_cleanup.push(() => {
     cleanup();
     if (condition) {
-      element.parentNode.removeChild(element);
+      clone.parentNode.removeChild(clone);
     }
     node.parentNode.replaceChild(el, node);
   });
@@ -1555,23 +1530,24 @@ const vox_if = (el, expression) => {
 };
 
 const vox_el = (el, expression) => {
-  const key = (
+  const name = (
     evaluator(expression)
-      .call(el.__vox)
+      .call(el.vox)
   );
-  const els = toRaw(
-    el.__vox
-      .__vox__[1].els
+  const { els } = toRaw(
+    el.vox.data[
+      el.vox.data.length - 1
+    ]
   );
   define(els, {
-    [key]: {
+    [name]: {
       value: el,
       configurable: true,
       enumerable: true
     }
   });
-  el.__vox_cleanup.push(() => {
-    delete els[key];
+  el.vox_cleanup.push(() => {
+    delete els[name];
   });
 };
 
@@ -1582,16 +1558,16 @@ const vox_attr = (el, expression, key, flags, alias) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
-      const obj = (
+      const attrs = (
         (key)
           ? { [key]: value }
           : value
       );
-      for (let key in obj) {
-        const value = obj[key];
+      for (let key in attrs) {
+        const value = attrs[key];
         if (alias) {
           key = `${alias}-${key}`;
         }
@@ -1603,7 +1579,7 @@ const vox_attr = (el, expression, key, flags, alias) => {
       }
     }
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
@@ -1611,7 +1587,7 @@ const vox_bind = (el, expression, key) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       el[key] = value;
@@ -1621,9 +1597,9 @@ const vox_bind = (el, expression, key) => {
     key === 'innerHTML' ||
     key === 'textContent'
   ) {
-    el.__vox_content = [];
+    el.vox_content = [];
   }
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
@@ -1635,7 +1611,7 @@ const vox_class = (el, expression, key, flags) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       if (key) {
@@ -1648,7 +1624,7 @@ const vox_class = (el, expression, key, flags) => {
       }
     }
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
@@ -1656,7 +1632,11 @@ const vox_event = (el, expression, key, flags) => {
   let cleanup;
   if (key) {
     let target = el;
-    const fn = new Array(2);
+    const handler = (
+      evaluator(`(event)=>{with(event){${expression}}}`)
+        .call(el.vox)
+    );
+    const event = new Array(2);
     const options = {};
     for (const flag in flags) {
       switch (flag) {
@@ -1679,177 +1659,177 @@ const vox_event = (el, expression, key, flags) => {
           if (target === el) {
             target = document;
           }
-          fn[1] = (event) => {
-            if (!el.contains(event.target)) {
-              fn[2](event);
+          event[1] = (e) => {
+            if (!el.contains(e.target)) {
+              event[2](e);
             }
           };
           break;
         }
         case 'self': {
-          const i = fn.push((event) => {
-            if (event.target === el) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.target === el) {
+              event[i](e);
             }
           });
           break;
         }
         case 'prevent': {
-          const i = fn.push((event) => {
-            event.preventDefault();
-            fn[i](event);
+          const i = event.push((e) => {
+            e.preventDefault();
+            event[i](e);
           });
           break;
         }
         case 'stop': {
-          const i = fn.push((event) => {
-            event.stopPropagation();
-            fn[i](event);
+          const i = event.push((e) => {
+            e.stopPropagation();
+            event[i](e);
           });
           break;
         }
         case 'immediate': {
-          const i = fn.push((event) => {
-            event.stopImmediatePropagation();
-            fn[i](event);
+          const i = event.push((e) => {
+            e.stopImmediatePropagation();
+            event[i](e);
           });
           break;
         }
         case 'left': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.button === 0 ||
-              event.key === 'ArrowLeft' ||
-              event.key === 'Left'
+              e.button === 0 ||
+              e.key === 'ArrowLeft' ||
+              e.key === 'Left'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'mid':
         case 'middle': {
-          const i = fn.push((event) => {
-            if (event.button === 1) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.button === 1) {
+              event[i](e);
             }
           });
           break;
         }
         case 'right': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.button === 2 ||
-              event.key === 'ArrowRight' ||
-              event.key === 'Right'
+              e.button === 2 ||
+              e.key === 'ArrowRight' ||
+              e.key === 'Right'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'up': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === 'ArrowUp' ||
-              event.key === 'Up'
+              e.key === 'ArrowUp' ||
+              e.key === 'Up'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'down': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === 'ArrowDown' ||
-              event.key === 'Down'
+              e.key === 'ArrowDown' ||
+              e.key === 'Down'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'del':
         case 'delete': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === 'Backspace' ||
-              event.key === 'Delete' ||
-              event.key === 'Del'
+              e.key === 'Backspace' ||
+              e.key === 'Delete' ||
+              e.key === 'Del'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'enter': {
-          const i = fn.push((event) => {
-            if (event.key === 'Enter') {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.key === 'Enter') {
+              event[i](e);
             }
           });
           break;
         }
         case 'esc':
         case 'escape': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === 'Escape' ||
-              event.key === 'Esc'
+              e.key === 'Escape' ||
+              e.key === 'Esc'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'space': {
-          const i = fn.push((event) => {
+          const i = event.push((e) => {
             if (
-              event.key === ' ' ||
-              event.key === 'Spacebar'
+              e.key === ' ' ||
+              e.key === 'Spacebar'
             ) {
-              fn[i](event);
+              event[i](e);
             }
           });
           break;
         }
         case 'tab': {
-          const i = fn.push((event) => {
-            if (event.key === 'Tab') {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.key === 'Tab') {
+              event[i](e);
             }
           });
           break;
         }
         case 'alt': {
-          const i = fn.push((event) => {
-            if (event.altKey) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.altKey) {
+              event[i](e);
             }
           });
           break;
         }
         case 'ctrl': {
-          const i = fn.push((event) => {
-            if (event.ctrlKey) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.ctrlKey) {
+              event[i](e);
             }
           });
           break;
         }
         case 'meta': {
-          const i = fn.push((event) => {
-            if (event.metaKey) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.metaKey) {
+              event[i](e);
             }
           });
           break;
         }
         case 'shift': {
-          const i = fn.push((event) => {
-            if (event.shiftKey) {
-              fn[i](event);
+          const i = event.push((e) => {
+            if (e.shiftKey) {
+              event[i](e);
             }
           });
           break;
@@ -1862,11 +1842,11 @@ const vox_event = (el, expression, key, flags) => {
               ? +(flags[flag])
               : 250
           );
-          fn[0] = (event) => {
+          event[0] = (e) => {
             clearTimeout(id);
             id = setTimeout(() => {
               id = null;
-              fn[1](event);
+              event[1](e);
             }, delay);
           };
           break;
@@ -1879,9 +1859,9 @@ const vox_event = (el, expression, key, flags) => {
               ? +(flags[flag])
               : 250
           );
-          fn[0] = (event) => {
+          event[0] = (e) => {
             if (id == null) {
-              fn[1](event);
+              event[1](e);
               id = setTimeout(() => {
                 id = null;
               }, delay);
@@ -1897,49 +1877,58 @@ const vox_event = (el, expression, key, flags) => {
         }
       }
     }
-    fn.push(
-      evaluator(`(event)=>{${expression}}`)
-        .call(el.__vox)
-    );
-    if (!fn[1]) {
-      fn[1] = fn[2];
+    event.push((e) => {
+      handler({
+        event: e,
+        ...e.detail
+      });
+    });
+    if (!event[1]) {
+      event[1] = event[2];
     }
-    if (!fn[0]) {
-      fn[0] = fn[1];
+    if (!event[0]) {
+      event[0] = event[1];
     }
     target.addEventListener(
       key,
-      fn[0],
+      event[0],
       options
     );
     cleanup = () => {
       target.removeEventListener(
         key,
-        fn[0],
+        event[0],
         options
       );
     };
   } else {
-    const obj = (
+    const events = (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     );
-    for (const key in obj) {
+    for (const key in events) {
+      const handler = events[key];
       el.addEventListener(
         key,
-        obj[key]
+        events[key] = (e) => {
+          handler.call(
+            el.vox,
+            e,
+            e.detail
+          );
+        }
       );
     }
     cleanup = () => {
-      for (const key in obj) {
+      for (const key in events) {
         el.removeEventListener(
           key,
-          obj[key]
+          events[key]
         );
       }
     };
   }
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
 };
 
 const vox_focus = (el, expression) => {
@@ -1948,7 +1937,7 @@ const vox_focus = (el, expression) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(`!!(${expression})`)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       if (condition !== value) {
@@ -1962,16 +1951,16 @@ const vox_focus = (el, expression) => {
       }
     }
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
 const vox_run = (el, expression) => {
   const { run, cleanup } = reaction(
     evaluator(`()=>{${expression}}`)
-      .call(el.__vox)
+      .call(el.vox)
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
@@ -1980,7 +1969,7 @@ const vox_style = (el, expression, key, flags) => {
   const { run, cleanup } = reaction(
     () => (
       evaluator(expression)
-        .call(el.__vox)
+        .call(el.vox)
     ),
     (value) => {
       for (const key in style) {
@@ -2023,44 +2012,44 @@ const vox_style = (el, expression, key, flags) => {
       }
     }
   );
-  el.__vox_cleanup.push(cleanup);
+  el.vox_cleanup.push(cleanup);
   run();
 };
 
 const vox_exit = (el) => {
-  if (el.__vox_content) {
-    el.__vox_content.forEach(vox_exit);
-    delete el.__vox_content;
+  if (el.vox_content) {
+    el.vox_content.forEach(vox_exit);
+    delete el.vox_content;
   }
-  if (el.__vox_cleanup) {
-    el.__vox_cleanup.forEach(
+  if (el.vox_cleanup) {
+    el.vox_cleanup.forEach(
       (cleanup) => cleanup()
     );
-    delete el.__vox_cleanup;
+    delete el.vox_cleanup;
   }
-  if (el.__vox) {
-    delete el.__vox;
+  if (el.vox) {
+    delete el.vox;
   }
-  if (el.__vox_for) {
-    delete el.__vox_for;
+  if (el.vox_for) {
+    delete el.vox_for;
   }
-  if (el.__vox_if) {
-    delete el.__vox_if;
+  if (el.vox_if) {
+    delete el.vox_if;
   }
-  if (el.__vox_init) {
-    delete el.__vox_init;
+  if (el.vox_init) {
+    delete el.vox_init;
   }
-  if (el.__vox_exit) {
-    el.__vox_exit.forEach(
+  if (el.vox_exit) {
+    el.vox_exit.forEach(
       (exit) => exit()
     );
-    delete el.__vox_exit;
+    delete el.vox_exit;
   }
 };
 
 const config = {};
 
-const version = "0.3.0";
+const version = "0.4.0";
 
 define(vox, {
   api: {
