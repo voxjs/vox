@@ -80,7 +80,9 @@ const normalize = (value) => {
     } else if (isObject(value)) {
       for (const name in value) {
         if (name && value[name]) {
-          classes.push(name);
+          classes.push(
+            ...normalize(name)
+          );
         }
       }
     } else if (value != null) {

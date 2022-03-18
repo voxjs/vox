@@ -9,7 +9,9 @@
   ],
   "homepage": "https://github.com/voxjs",
   "author": "Paula Griguță <paula.la@live.com> (https://paula.dev)",
-  "contributors": [],
+  "contributors": [
+    "Gabriel Cramer <cramergabriel@gmail.com>"
+  ],
   "license": "MIT",
   "main": "dist/vox.js",
   "browser": "dist/vox.js",
