@@ -29,7 +29,7 @@ const vox = (q = '[vox]') => {
   if (isString(q)) {
     const els = (
       document.querySelectorAll(
-        `${q}:not(${q} ${q})`
+        `${q}:not(${q} *)`
       )
     );
     _.init = () => {
