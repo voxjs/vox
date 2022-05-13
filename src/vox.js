@@ -248,7 +248,7 @@ const vox_init = (el) => {
           vox_event(el, expression, key, flags);
         } else {
           const key = keys[name] || name;
-          if (key && (key in el)) {
+          if (key in el) {
             vox_bind(el, expression, key);
           }
         }
