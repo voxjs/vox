@@ -1,3 +1,13 @@
+## [v0.5.0](https://github.com/voxjs/vox/releases/tag/v0.5.0) (2022-08-18)
+
+**FIXES**
+
+* normalize object keys ([`6a082b2`](https://github.com/voxjs/vox/commit/6a082b2ff21979bc22f21e87f90c58c3153f37f0))
+* fix selector ([`f757aec`](https://github.com/voxjs/vox/commit/f757aecafdbf20bd221a899552ee84a447f394a1))
+* remove unnecessary check ([`3302f1f`](https://github.com/voxjs/vox/commit/3302f1fe9bf2ddedd3d3ade273b60909a217235c))
+
+&#8206;
+
 ## [v0.4.0](https://github.com/voxjs/vox/releases/tag/v0.4.0) (2022-02-02)
 
 **FIXES**

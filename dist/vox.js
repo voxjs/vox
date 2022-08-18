@@ -57,8 +57,7 @@ var vox = (function () {
     const hasChanged = (value, oldValue) => !Object.is(value, oldValue);
 
     let activeEffectScope;
-    function recordEffectScope(effect, scope) {
-        scope = scope || activeEffectScope;
+    function recordEffectScope(effect, scope = activeEffectScope) {
         if (scope && scope.active) {
             scope.effects.push(effect);
         }
@@ -109,7 +108,6 @@ var vox = (function () {
      * When recursion depth is greater, fall back to using a full cleanup.
      */
     const maxMarkerBits = 30;
-    const effectStack = [];
     let activeEffect;
     const ITERATE_KEY = Symbol('');
     const MAP_KEY_ITERATE_KEY = Symbol('');
@@ -119,39 +117,53 @@ var vox = (function () {
             this.scheduler = scheduler;
             this.active = true;
             this.deps = [];
+            this.parent = undefined;
             recordEffectScope(this, scope);
         }
         run() {
             if (!this.active) {
                 return this.fn();
             }
-            if (!effectStack.length || !effectStack.includes(this)) {
-                try {
-                    effectStack.push((activeEffect = this));
-                    enableTracking();
-                    trackOpBit = 1 << ++effectTrackDepth;
-                    if (effectTrackDepth <= maxMarkerBits) {
-                        initDepMarkers(this);
-                    }
-                    else {
-                        cleanupEffect(this);
-                    }
-                    return this.fn();
+            let parent = activeEffect;
+            let lastShouldTrack = shouldTrack;
+            while (parent) {
+                if (parent === this) {
+                    return;
                 }
-                finally {
-                    if (effectTrackDepth <= maxMarkerBits) {
-                        finalizeDepMarkers(this);
-                    }
-                    trackOpBit = 1 << --effectTrackDepth;
-                    resetTracking();
-                    effectStack.pop();
-                    const n = effectStack.length;
-                    activeEffect = n > 0 ? effectStack[n - 1] : undefined;
+                parent = parent.parent;
+            }
+            try {
+                this.parent = activeEffect;
+                activeEffect = this;
+                shouldTrack = true;
+                trackOpBit = 1 << ++effectTrackDepth;
+                if (effectTrackDepth <= maxMarkerBits) {
+                    initDepMarkers(this);
+                }
+                else {
+                    cleanupEffect(this);
+                }
+                return this.fn();
+            }
+            finally {
+                if (effectTrackDepth <= maxMarkerBits) {
+                    finalizeDepMarkers(this);
+                }
+                trackOpBit = 1 << --effectTrackDepth;
+                activeEffect = this.parent;
+                shouldTrack = lastShouldTrack;
+                this.parent = undefined;
+                if (this.deferStop) {
+                    this.stop();
                 }
             }
         }
         stop() {
-            if (this.active) {
+            // stopped while running itself - defer the cleanup
+            if (activeEffect === this) {
+                this.deferStop = true;
+            }
+            else if (this.active) {
                 cleanupEffect(this);
                 if (this.onStop) {
                     this.onStop();
@@ -175,30 +187,22 @@ var vox = (function () {
         trackStack.push(shouldTrack);
         shouldTrack = false;
     }
-    function enableTracking() {
-        trackStack.push(shouldTrack);
-        shouldTrack = true;
-    }
     function resetTracking() {
         const last = trackStack.pop();
         shouldTrack = last === undefined ? true : last;
     }
     function track(target, type, key) {
-        if (!isTracking()) {
-            return;
+        if (shouldTrack && activeEffect) {
+            let depsMap = targetMap.get(target);
+            if (!depsMap) {
+                targetMap.set(target, (depsMap = new Map()));
+            }
+            let dep = depsMap.get(key);
+            if (!dep) {
+                depsMap.set(key, (dep = createDep()));
+            }
+            trackEffects(dep);
         }
-        let depsMap = targetMap.get(target);
-        if (!depsMap) {
-            targetMap.set(target, (depsMap = new Map()));
-        }
-        let dep = depsMap.get(key);
-        if (!dep) {
-            depsMap.set(key, (dep = createDep()));
-        }
-        trackEffects(dep);
-    }
-    function isTracking() {
-        return shouldTrack && activeEffect !== undefined;
     }
     function trackEffects(dep, debuggerEventExtraInfo) {
         let shouldTrack = false;
@@ -291,20 +295,37 @@ var vox = (function () {
     }
     function triggerEffects(dep, debuggerEventExtraInfo) {
         // spread into array for stabilization
-        for (const effect of isArray(dep) ? dep : [...dep]) {
-            if (effect !== activeEffect || effect.allowRecurse) {
-                if (effect.scheduler) {
-                    effect.scheduler();
-                }
-                else {
-                    effect.run();
-                }
+        const effects = isArray(dep) ? dep : [...dep];
+        for (const effect of effects) {
+            if (effect.computed) {
+                triggerEffect(effect);
+            }
+        }
+        for (const effect of effects) {
+            if (!effect.computed) {
+                triggerEffect(effect);
+            }
+        }
+    }
+    function triggerEffect(effect, debuggerEventExtraInfo) {
+        if (effect !== activeEffect || effect.allowRecurse) {
+            if (effect.scheduler) {
+                effect.scheduler();
+            }
+            else {
+                effect.run();
             }
         }
     }
 
     const isNonTrackableKeys = /*#__PURE__*/ makeMap(`__proto__,__v_isRef,__isVue`);
-    const builtInSymbols = new Set(Object.getOwnPropertyNames(Symbol)
+    const builtInSymbols = new Set(
+    /*#__PURE__*/
+    Object.getOwnPropertyNames(Symbol)
+        // ios10.x Object.getOwnPropertyNames(Symbol) can enumerate 'arguments' and 'caller'
+        // but accessing them on Symbol leads to TypeError because Symbol is a strict mode
+        // function
+        .filter(key => key !== 'arguments' && key !== 'caller')
         .map(key => Symbol[key])
         .filter(isSymbol));
     const get = /*#__PURE__*/ createGetter();
@@ -377,9 +398,8 @@ var vox = (function () {
                 return res;
             }
             if (isRef(res)) {
-                // ref unwrapping - does not apply for Array + integer key.
-                const shouldUnwrap = !targetIsArray || !isIntegerKey(key);
-                return shouldUnwrap ? res.value : res;
+                // ref unwrapping - skip unwrap for Array + integer key.
+                return targetIsArray && isIntegerKey(key) ? res : res.value;
             }
             if (isObject(res)) {
                 // Convert returned value into a proxy as well. we do the isObject check
@@ -474,10 +494,12 @@ var vox = (function () {
         target = target["__v_raw" /* RAW */];
         const rawTarget = toRaw(target);
         const rawKey = toRaw(key);
-        if (key !== rawKey) {
-            !isReadonly && track(rawTarget, "get" /* GET */, key);
+        if (!isReadonly) {
+            if (key !== rawKey) {
+                track(rawTarget, "get" /* GET */, key);
+            }
+            track(rawTarget, "get" /* GET */, rawKey);
         }
-        !isReadonly && track(rawTarget, "get" /* GET */, rawKey);
         const { has } = getProto(rawTarget);
         const wrap = isShallow ? toShallow : isReadonly ? toReadonly : toReactive;
         if (has.call(rawTarget, key)) {
@@ -496,10 +518,12 @@ var vox = (function () {
         const target = this["__v_raw" /* RAW */];
         const rawTarget = toRaw(target);
         const rawKey = toRaw(key);
-        if (key !== rawKey) {
-            !isReadonly && track(rawTarget, "has" /* HAS */, key);
+        if (!isReadonly) {
+            if (key !== rawKey) {
+                track(rawTarget, "has" /* HAS */, key);
+            }
+            track(rawTarget, "has" /* HAS */, rawKey);
         }
-        !isReadonly && track(rawTarget, "has" /* HAS */, rawKey);
         return key === rawKey
             ? target.has(key)
             : target.has(key) || target.has(rawKey);
@@ -786,7 +810,7 @@ var vox = (function () {
         if (existingProxy) {
             return existingProxy;
         }
-        // only a whitelist of value types can be observed.
+        // only specific value types can be observed.
         const targetType = getTargetType(target);
         if (targetType === 0 /* INVALID */) {
             return target;
@@ -814,9 +838,8 @@ var vox = (function () {
     const toReactive = (value) => isObject(value) ? reactive(value) : value;
     const toReadonly = (value) => isObject(value) ? readonly(value) : value;
     function isRef(r) {
-        return Boolean(r && r.__v_isRef === true);
+        return !!(r && r.__v_isRef === true);
     }
-    Promise.resolve();
 
     const define = Object.defineProperties;
 
@@ -886,7 +909,9 @@ var vox = (function () {
         } else if (isObject(value)) {
           for (const name in value) {
             if (name && value[name]) {
-              classes.push(name);
+              classes.push(
+                ...normalize(name)
+              );
             }
           }
         } else if (value != null) {
@@ -1082,7 +1107,7 @@ var vox = (function () {
       if (isString(q)) {
         const els = (
           document.querySelectorAll(
-            `${q}:not(${q} ${q})`
+            `${q}:not(${q} *)`
           )
         );
         _.init = () => {
@@ -1301,7 +1326,7 @@ var vox = (function () {
               vox_event(el, expression, key, flags);
             } else {
               const key = keys[name] || name;
-              if (key && (key in el)) {
+              if (key in el) {
                 vox_bind(el, expression, key);
               }
             }
@@ -2052,7 +2077,7 @@ var vox = (function () {
 
     const config = {};
 
-    const version = "0.4.0";
+    const version = "0.5.0";
 
     define(vox, {
       api: {
